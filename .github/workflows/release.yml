@@ -29,7 +29,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev desktop-file-utils appstream ffmpeg libxcb-cursor0 libxkbcommon-x11-0
+          sudo apt-get install -y dpkg-dev desktop-file-utils appstream ffmpeg libegl1 libxcb-cursor0 libxkbcommon-x11-0
           python -m pip install -r packaging/requirements-deb.lock
       - name: Test
         env:
