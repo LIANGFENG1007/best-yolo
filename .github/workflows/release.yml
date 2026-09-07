@@ -70,14 +70,14 @@ jobs:
           path: |
             dist/*.deb
             dist/*.deb.sha256
-            dist/安装说明-Ubuntu22.04.txt
+            dist/INSTALL-Ubuntu22.04-zh-CN.txt
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --clobber
+            gh release upload "$TAG" dist/*.deb dist/*.deb.sha256 dist/INSTALL-Ubuntu22.04-zh-CN.txt --clobber
           else
-            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --notes-file packaging/release-notes.zh-CN.md --title "Best yolo $TAG"
+            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/INSTALL-Ubuntu22.04-zh-CN.txt --notes-file packaging/release-notes.zh-CN.md --title "Best yolo $TAG"
           fi

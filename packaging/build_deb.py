@@ -509,7 +509,7 @@ def main():
         digest = hashlib.sha256(output.read_bytes()).hexdigest()
         checksum = output.with_name(output.name + ".sha256")
         checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii")
-        install_note = output_dir / "安装说明-Ubuntu22.04.txt"
+        install_note = output_dir / "INSTALL-Ubuntu22.04-zh-CN.txt"
         install_note.write_text(textwrap.dedent(f'''\
             Best yolo {VERSION} 安装说明
             ================================
