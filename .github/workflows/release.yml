@@ -55,7 +55,10 @@ jobs:
         run: python packaging/build_deb.py --version "${{ steps.version.outputs.version }}-${DEBIAN_REVISION}"
       - name: Validate package
         run: |
-          sha256sum -c dist/*.deb.sha256
+          (
+            cd dist
+            sha256sum -c *.deb.sha256
+          )
           dpkg-deb -I dist/*.deb
           VERIFY_DIR="$(mktemp -d)"
           dpkg-deb -x dist/*.deb "$VERIFY_DIR"
@@ -76,5 +79,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --clobber
           else
-            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --generate-notes --title "Best yolo $TAG"
+            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --notes-file packaging/release-notes.zh-CN.md --title "Best yolo $TAG"
           fi

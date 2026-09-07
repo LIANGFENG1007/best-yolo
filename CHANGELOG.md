@@ -1,10 +1,10 @@
-# Changelog
+# 更新日志
 
 ## 1.0.0 - 2026-09-08
 
-- Five-page PySide6 desktop workflow for labeling, correction, prompt refinement, dataset export, and video extraction.
-- Searchable model selectors and a configurable 77-command shortcut editor.
-- Project-level label locks, autosave, AI baseline snapshots, and prompt adjustment history.
-- Ubuntu 22.04 amd64 cloud API Debian package with bundled Python dependencies.
-- Reproducible package build, permission normalization, desktop integration, diagnostics, and user-scoped data storage.
-- Security hardening for project credentials, tile parsing, empty negative labels, and release file whitelisting.
+- 提供五个 PySide6 桌面工作页面，覆盖自动标注、人工修订、提示词补充、数据集导出和视频抽帧。
+- 模型选择器支持输入部分名称后筛选，提供 77 个功能命令的可配置快捷键编辑器。
+- 支持项目级标签锁定、自动保存、AI 原始标注快照和提示词调整历史。
+- 提供适用于 Ubuntu 22.04 amd64 的云端 API 版 Debian 安装包，并内置 Python 运行依赖。
+- 支持可复现的软件包构建、权限规范化、桌面菜单集成、系统诊断和用户目录数据存储。
+- 加固项目凭据保存、切片参数解析、空负样本识别和发布文件白名单。
