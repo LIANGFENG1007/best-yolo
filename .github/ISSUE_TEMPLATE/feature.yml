@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a concrete workflow improvement
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workflow problem
+      description: Describe the repeated task or limitation, not only the proposed control.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Example data or screenshots
+      description: Remove private paths, images, and credentials before attaching files.

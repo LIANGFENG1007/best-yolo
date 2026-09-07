@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without v, for example 1.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DEBIAN_REVISION: "3"
+
+jobs:
+  deb:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: packaging/requirements-deb.lock
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev desktop-file-utils appstream ffmpeg libxcb-cursor0 libxkbcommon-x11-0
+          python -m pip install -r packaging/requirements-deb.lock
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -B gui/test_gui.py
+          python -B gui/test_shortcuts.py
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+            TAG="v$INPUT_VERSION"
+          else
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Build Debian package
+        run: python packaging/build_deb.py --version "${{ steps.version.outputs.version }}-${DEBIAN_REVISION}"
+      - name: Validate package
+        run: |
+          sha256sum -c dist/*.deb.sha256
+          dpkg-deb -I dist/*.deb
+          VERIFY_DIR="$(mktemp -d)"
+          dpkg-deb -x dist/*.deb "$VERIFY_DIR"
+          desktop-file-validate "$VERIFY_DIR/usr/share/applications/best-yolo.desktop"
+          appstreamcli validate --no-net "$VERIFY_DIR/usr/share/metainfo/best-yolo.metainfo.xml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: best-yolo-${{ steps.version.outputs.version }}-ubuntu22.04-amd64
+          path: |
+            dist/*.deb
+            dist/*.deb.sha256
+            dist/安装说明-Ubuntu22.04.txt
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --clobber
+          else
+            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/安装说明-Ubuntu22.04.txt --generate-notes --title "Best yolo $TAG"
+          fi

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: packaging/requirements-deb.lock
+      - name: Install system test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libxcb-cursor0 libxkbcommon-x11-0
+      - name: Install Python dependencies
+        run: python -m pip install -r packaging/requirements-deb.lock
+      - name: Compile source
+        run: python -m py_compile autolabel_qwen.py build_dataset.py gui/*.py packaging/build_deb.py
+      - name: Run logic regression suite
+        run: python -B gui/test_gui.py
+      - name: Run real Qt shortcut suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -B gui/test_shortcuts.py

@@ -1,0 +1,3 @@
+# Optional YOLO training helper.
+-r requirements.txt
+ultralytics

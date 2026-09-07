@@ -1,0 +1,8 @@
+# Optional local Qwen-VL backend. Install a PyTorch build compatible with your
+# NVIDIA driver first: https://pytorch.org/get-started/locally/
+-r requirements.txt
+torch
+torchvision
+transformers>=4.49.0
+qwen-vl-utils
+accelerate

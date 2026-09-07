@@ -1,0 +1,29 @@
+# Local Python environment
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local application state and credentials
+.dev-data/
+.gui_state.json
+config.json
+projects/
+start.log
+
+# Generated datasets and model artifacts
+out/
+out_*/
+dataset/
+dataset_*/
+runs/
+dist/
+build/
+*.pt
+*.zip
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

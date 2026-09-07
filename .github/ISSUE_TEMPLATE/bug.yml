@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible problem in the latest release
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not upload `.gui_state.json` or API keys. Remove private paths and endpoints from logs."
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "1.0.0-3"
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Desktop session
+      options: [Wayland, X11, Unknown]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Open…\n2. Click…\n3. Observe…"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostic output
+      description: Output of `best-yolo --diagnose` and relevant log lines, with secrets removed.
+      render: shell
