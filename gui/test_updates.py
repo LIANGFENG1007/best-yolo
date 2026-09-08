@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 
@@ -85,17 +87,10 @@ class UpdateLogicTests(unittest.TestCase):
         self.assertEqual(release, {})
         self.assertEqual(error, update_check.NO_NETWORK_MESSAGE)
 
-    def test_release_page_probe(self):
+    def test_release_page_url_is_restricted_to_the_official_repository(self):
         url = "https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.2.0"
-        ok, error = update_check.probe_release_page(
-            url, opener=_Opener(_Response(status=200)))
-        self.assertTrue(ok)
-        self.assertEqual(error, "")
-        ok, error = update_check.probe_release_page(
-            url, opener=_Opener(error=OSError("offline")))
-        self.assertFalse(ok)
-        self.assertEqual(error, update_check.NO_NETWORK_MESSAGE)
-        self.assertFalse(update_check.probe_release_page("https://example.com/")[0])
+        self.assertTrue(update_check.valid_release_url(url))
+        self.assertFalse(update_check.valid_release_url("https://example.com/"))
 
     def test_latest_json_request_has_versioned_user_agent(self):
         raw = json.dumps(_payload()).encode("utf-8")
@@ -113,28 +108,50 @@ class UpdateUiTests(unittest.TestCase):
         cls.qt_app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
     def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="best_yolo_updates_")
+        core = app.core
+        core.PROJECTS_DIR = os.path.join(self.tmp, "projects")
+        core.STATE_PATH = os.path.join(self.tmp, "state.json")
+        core.CONFIG_PATH = os.path.join(self.tmp, "config.json")
+        os.makedirs(core.PROJECTS_DIR)
         QtWidgets.QMessageBox.CALLS.clear()
         self.window = app.MainWindow()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_button_switches_between_blue_and_red_state(self):
         self.assertEqual(self.window.btn_update.text(), "检测更新")
         self.assertEqual(self.window.btn_update.objectName(), "UpdateCheckBtn")
         release = update_check.parse_release(_payload("v1.4.0"), APP_VERSION)
+        called = []
+        self.window._show_update_dialog = lambda: called.append(True)
         self.window._update_check_seq = 1
         self.window._on_update_ready(1, release, "", False)
         self.assertEqual(self.window.btn_update.text(), "发现更新")
         self.assertEqual(self.window.btn_update.objectName(), "UpdateAvailableBtn")
-
-        called = []
-        self.window._show_update_dialog = lambda: called.append(True)
-        self.window.btn_update.click()
         self.assertEqual(called, [True])
+        self.assertEqual(app.core.load_state()["update_notice_version"], "1.4.0")
+
+        # 同一版本自动提醒只出现一次，手动点击仍然可以再次查看。
+        self.window._update_check_seq = 2
+        self.window._on_update_ready(2, release, "", False)
+        self.assertEqual(called, [True])
+        self.window.btn_update.click()
+        self.assertEqual(called, [True, True])
 
         current = update_check.parse_release(_payload(f"v{APP_VERSION}"), APP_VERSION)
-        self.window._update_check_seq = 2
-        self.window._on_update_ready(2, current, "", False)
+        self.window._update_check_seq = 3
+        self.window._on_update_ready(3, current, "", False)
         self.assertEqual(self.window.btn_update.text(), "检测更新")
         self.assertEqual(self.window.btn_update.objectName(), "UpdateCheckBtn")
+
+        reopened = app.MainWindow()
+        reopened_called = []
+        reopened._show_update_dialog = lambda: reopened_called.append(True)
+        reopened._update_check_seq = 1
+        reopened._on_update_ready(1, release, "", False)
+        self.assertEqual(reopened_called, [])
 
     def test_automatic_failure_is_silent_manual_failure_is_visible(self):
         self.window._update_check_seq = 1
@@ -158,14 +175,38 @@ class UpdateUiTests(unittest.TestCase):
         self.window._on_update_ready(9, release, "", False)
         self.assertEqual(self.window.btn_update.text(), "检测更新")
 
-    def test_release_link_failure_reports_no_network(self):
-        self.window._update_link_seq = 7
-        self.window._update_dialog = QtWidgets.QDialog()
-        self.window._update_go_button = QtWidgets.QPushButton()
-        self.window._on_update_page_ready(
-            7, False, update_check.NO_NETWORK_MESSAGE)
-        self.assertEqual(self.window._update_go_button.text(), "前往 GitHub 发布页")
-        self.assertEqual(QtWidgets.QMessageBox.CALLS[-1][1], "没有网络")
+    def test_release_link_opens_default_browser_without_network_probe(self):
+        url = "https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.4.0"
+        opened = []
+        original = app.QDesktopServices.openUrl
+        try:
+            app.QDesktopServices.openUrl = staticmethod(
+                lambda qurl: opened.append(qurl) or True)
+            self.window._open_release_page(QtWidgets.QDialog(), url)
+        finally:
+            app.QDesktopServices.openUrl = original
+        self.assertEqual(len(opened), 1)
+        self.assertEqual(QtWidgets.QMessageBox.CALLS, [])
+
+    def test_browser_failure_shows_manual_url_instead_of_no_network(self):
+        url = "https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.4.0"
+        original = app.QDesktopServices.openUrl
+        try:
+            app.QDesktopServices.openUrl = staticmethod(lambda _url: False)
+            self.window._open_release_page(QtWidgets.QDialog(), url)
+        finally:
+            app.QDesktopServices.openUrl = original
+        _parent, title, message = QtWidgets.QMessageBox.CALLS[-1][:3]
+        self.assertEqual(title, "无法打开默认浏览器")
+        self.assertIn(url, message)
+        self.assertNotIn("没有网络", message)
+
+    def test_update_dialog_contains_manual_release_link(self):
+        release = update_check.parse_release(_payload("v1.4.0"), APP_VERSION)
+        self.window._latest_release = release
+        dialog = self.window._show_update_dialog()
+        self.assertIn("无法自动跳转", dialog.release_fallback_label.text())
+        self.assertIn(release["url"], dialog.release_url_label.text())
 
 
 if __name__ == "__main__":

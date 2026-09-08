@@ -38,3 +38,4 @@ jobs:
         run: |
           python -B gui/test_shortcuts.py
           python -B gui/test_themes.py
+          python -B gui/test_update_dialog_qt.py

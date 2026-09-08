@@ -81,7 +81,6 @@ class MainWindow(QMainWindow):
     # 信号槽跨线程时 Qt 会自动排队到接收者所在线程,这才是正确做法。
     models_ready = Signal(list, str)
     update_ready = Signal(int, dict, str, bool)
-    update_page_ready = Signal(int, bool, str)
     # 页码。侧栏顺序 = 页面顺序,改顺序只改这里和上面的 addWidget
     PAGE_HOME, PAGE_MARK, PAGE_PROMPT, PAGE_DATASET, PAGE_VIDEO = range(5)
 
@@ -144,13 +143,10 @@ class MainWindow(QMainWindow):
         self._update_handled_seq = 0
         self._update_manual_wait = False
         self._latest_release = {}
-        self._update_link_seq = 0
-        self._update_link_checking = False
-        self._update_dialog = None
-        self._update_go_button = None
+        self._update_notice_version = str(
+            state.get("update_notice_version") or "").strip()
         self.models_ready.connect(self._on_models)
         self.update_ready.connect(self._on_update_ready)
-        self.update_page_ready.connect(self._on_update_page_ready)
         self.pai_progress.connect(self._on_pai_progress)
         self.pai_done.connect(self._on_pai_done)
         self.pai_thumb.connect(self._on_pai_thumb)
@@ -340,7 +336,12 @@ class MainWindow(QMainWindow):
         self._latest_release = dict(release or {})
         available = bool(self._latest_release.get("update_available"))
         self._set_update_button(available)
-        if available and show_feedback:
+        latest_version = str(self._latest_release.get("version") or "").strip()
+        first_notice = bool(
+            available and latest_version and
+            latest_version != self._update_notice_version)
+        if available and (show_feedback or first_notice):
+            self._remember_update_notice(latest_version)
             self._show_update_dialog()
         elif show_feedback:
             version = self._latest_release.get("version") or APP_VERSION
@@ -350,9 +351,16 @@ class MainWindow(QMainWindow):
 
     def _on_update_button(self):
         if self._latest_release.get("update_available"):
+            self._remember_update_notice(
+                str(self._latest_release.get("version") or "").strip())
             self._show_update_dialog()
         else:
             self._check_updates(manual=True)
+
+    def _remember_update_notice(self, version):
+        if version and version != self._update_notice_version:
+            self._update_notice_version = version
+            core.save_state(update_notice_version=version)
 
     def _show_update_dialog(self):
         release = self._latest_release
@@ -362,7 +370,7 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setObjectName("UpdateDialog")
         dlg.setWindowTitle(f"发现 Best yolo v{release.get('version', '')}")
-        dlg.resize(700, 540)
+        dlg.resize(720, 600)
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(22, 20, 22, 18)
         layout.setSpacing(12)
@@ -380,62 +388,62 @@ class MainWindow(QMainWindow):
         notes.setMarkdown(release.get("body") or "## 更新内容\n\n这个版本没有提供更新说明。")
         layout.addWidget(notes, 1)
 
+        release_url = str(release.get("url") or "").strip()
+        fallback = QLabel("若无法自动跳转，请自行打开下面的发布页下载安装包：")
+        fallback.setObjectName("UpdateDialogVersion")
+        fallback.setWordWrap(True)
+        layout.addWidget(fallback)
+        link_row = QHBoxLayout()
+        release_link = QLabel(
+            f'<a href="{release_url}">{release_url}</a>')
+        release_link.setObjectName("UpdateReleaseLink")
+        release_link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        release_link.setOpenExternalLinks(False)
+        release_link.linkActivated.connect(
+            lambda url: self._open_release_page(dlg, url))
+        copy_link = QPushButton("复制链接")
+        copy_link.clicked.connect(
+            lambda: self._copy_release_link(release_url, copy_link))
+        link_row.addWidget(release_link, 1)
+        link_row.addWidget(copy_link)
+        layout.addLayout(link_row)
+        dlg.release_fallback_label = fallback
+        dlg.release_url_label = release_link
+
         buttons = QHBoxLayout()
         buttons.addStretch(1)
         later = QPushButton("稍后")
         later.clicked.connect(dlg.reject)
         go = QPushButton("前往 GitHub 发布页")
         go.setObjectName("Primary")
-        go.clicked.connect(
-            lambda: self._probe_and_open_release(dlg, go, release.get("url", "")))
+        go.clicked.connect(lambda: self._open_release_page(dlg, release_url))
         buttons.addWidget(later)
         buttons.addWidget(go)
         layout.addLayout(buttons)
+        dlg.copy_release_button = copy_link
+        dlg.open_release_button = go
 
-        self._update_dialog = dlg
-        self._update_go_button = go
         dlg.exec()
-        self._update_link_seq += 1       # 关闭弹窗后作废仍在路上的网络结果
-        self._update_link_checking = False
-        self._update_dialog = None
-        self._update_go_button = None
+        return dlg
 
-    def _probe_and_open_release(self, dlg, button, url):
-        if self._update_link_checking:
+    def _copy_release_link(self, url, button=None):
+        if not url:
             return
-        self._update_link_checking = True
-        self._update_link_seq += 1
-        seq = self._update_link_seq
-        button.setEnabled(False)
-        button.setText("正在连接…")
-
-        def work():
-            ok, error = update_check.probe_release_page(url, timeout=5.0)
-            try:
-                self.update_page_ready.emit(seq, ok, error)
-            except RuntimeError:
-                pass
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_update_page_ready(self, seq, ok, error):
-        if self._closing or seq != self._update_link_seq:
-            return
-        self._update_link_checking = False
-        button = self._update_go_button
-        dlg = self._update_dialog
+        QApplication.clipboard().setText(url)
         if button is not None:
-            button.setEnabled(True)
-            button.setText("前往 GitHub 发布页")
-        if not ok:
-            QMessageBox.information(
-                dlg or self, "没有网络", error or update_check.NO_NETWORK_MESSAGE)
-            return
-        url = self._latest_release.get("url") or ""
-        opened = bool(url) and QDesktopServices.openUrl(QUrl(url))
+            button.setText("已复制")
+            button.setEnabled(False)
+        self.status.showMessage("发布页链接已复制", 3000)
+
+    def _open_release_page(self, dlg, url):
+        """直接交给系统默认浏览器，不再额外探测 GitHub 网络。"""
+        opened = (update_check.valid_release_url(url) and
+                  QDesktopServices.openUrl(QUrl(url)))
         if not opened:
             QMessageBox.information(
-                dlg or self, "没有网络", update_check.NO_NETWORK_MESSAGE)
+                dlg or self, "无法打开默认浏览器",
+                "没有成功调用系统默认浏览器。请复制更新窗口中的发布页链接，"
+                f"在浏览器中手动打开：\n{url}")
             return
         if dlg is not None:
             dlg.accept()
@@ -3742,7 +3750,6 @@ class MainWindow(QMainWindow):
         # (退出码 139,而且日志里看不到任何 Python 报错)。
         self._closing = True
         self._update_check_seq += 1
-        self._update_link_seq += 1
         try:
             app = QApplication.instance()
             if app is not None and getattr(

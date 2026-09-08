@@ -2,6 +2,36 @@
 
 这里集中列出 Best yolo 的公开版本、主要变化和各平台安装包。一般用户应选择最上方的最新稳定版。
 
+## [v1.3.1](https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.3.1) - 2026-09-08
+
+修复更新发布页误报断网，并增加每个新版本首次自动提醒。
+
+[查看本版本的完整发布说明](release-notes/v1.3.1.md)
+
+### 新增功能
+
+- 每个新版本第一次被自动检测到时主动弹出一次完整更新内容，之后不重复打扰。
+- 更新窗口显示完整发布页地址，支持直接点击或复制链接。
+- 自动跳转失败时明确提示用户自行打开发布页下载。
+
+### 修复内容
+
+- 删除打开发布页前多余的网络探测，修复已经检测到版本却误报“没有网络”的问题。
+- “前往 GitHub 发布页”现在直接调用 Windows 或 Linux 的系统默认浏览器。
+- 没有可用默认浏览器时显示手动访问地址，不再将浏览器调用失败误判为断网。
+
+### Windows 10 / 11 x64
+
+- [下载安装程序](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/BestYolo-Setup-1.3.1-win64.exe)
+- [SHA256 校验文件](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/BestYolo-Setup-1.3.1-win64.exe.sha256)
+- [中文安装说明](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/INSTALL-Windows10-zh-CN.txt)
+
+### Ubuntu 22.04 amd64
+
+- [下载 Debian 安装包](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/best-yolo_1.3.1-1_amd64.deb)
+- [SHA256 校验文件](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/best-yolo_1.3.1-1_amd64.deb.sha256)
+- [中文安装说明](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.1/INSTALL-Ubuntu22.04-zh-CN.txt)
+
 ## [v1.3.0](https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.3.0) - 2026-09-08
 
 新增完整的界面配色系统与 8 套一键主题。

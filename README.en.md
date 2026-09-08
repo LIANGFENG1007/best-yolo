@@ -25,7 +25,7 @@ Best yolo combines Qwen-VL assisted auto-labeling, manual bounding-box correctio
 - Compare the AI baseline with human corrections and selectively apply prompt suggestions.
 - Extract a selected video interval and export deterministic train/validation splits.
 - Configure 79 commands through a searchable shortcut editor.
-- Check for new stable releases in the background and review release notes before opening GitHub.
+- Show each newly detected stable release once and open its page directly in the system browser.
 - Choose from eight built-in themes or customize interface, text, and button colors with a circular HSV color wheel.
 
 ## Interface themes

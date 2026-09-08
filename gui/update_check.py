@@ -93,25 +93,3 @@ def check_for_update(current=APP_VERSION, timeout=5.0, loader=None):
 def valid_release_url(url):
     prefix = f"https://github.com/{GITHUB_REPOSITORY}/releases/tag/"
     return isinstance(url, str) and url.startswith(prefix) and len(url) > len(prefix)
-
-
-def probe_release_page(url, timeout=5.0, opener=None):
-    """打开浏览器前确认 GitHub 发布页可达，避免断网时假装已打开。"""
-    if not valid_release_url(url):
-        return False, NO_NETWORK_MESSAGE
-    try:
-        request = Request(
-            url,
-            headers={
-                "Accept": "text/html",
-                "User-Agent": f"BestYolo/{APP_VERSION}",
-            },
-        )
-        with (opener or _https_opener()).open(
-                request, timeout=float(timeout)) as response:
-            status = int(getattr(response, "status", 200) or 200)
-        if 200 <= status < 400:
-            return True, ""
-    except Exception:
-        pass
-    return False, NO_NETWORK_MESSAGE
