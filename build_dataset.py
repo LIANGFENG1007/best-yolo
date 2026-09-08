@@ -57,7 +57,7 @@ def main():
         "val": "images/val",
         "names": {i: c for i, c in enumerate(classes)},
     }
-    with open(os.path.join(args.out, "data.yaml"), "w") as f:
+    with open(os.path.join(args.out, "data.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 
     # classes.txt:一行一个类别名,行号 = 类别 id。

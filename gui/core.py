@@ -13,13 +13,30 @@ import glob
 import time
 import shutil
 
-# 项目根目录(gui/ 的上一级)
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 源码运行时仍把数据放在项目目录。系统安装包通过环境变量把用户数据
-# 放到 ~/.local/share/best-yolo，避免普通用户向只读的 /opt 写文件。
-_DATA_ENV = (os.environ.get("BEST_YOLO_DATA_DIR") or "").strip()
-DATA_ROOT = (os.path.abspath(os.path.expanduser(_DATA_ENV))
-             if _DATA_ENV else ROOT)
+def _runtime_root():
+    """源码目录；PyInstaller 版则是本次运行的只读解包目录。"""
+    if getattr(sys, "frozen", False):
+        return os.path.abspath(getattr(sys, "_MEIPASS", os.path.dirname(sys.executable)))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _default_data_root():
+    """返回当前运行方式对应的可写数据目录。"""
+    configured = (os.environ.get("BEST_YOLO_DATA_DIR") or "").strip()
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    if os.name == "nt" and getattr(sys, "frozen", False):
+        base = (os.environ.get("LOCALAPPDATA") or
+                os.environ.get("APPDATA") or
+                os.path.expanduser("~"))
+        return os.path.abspath(os.path.join(base, "BestYolo"))
+    return ROOT
+
+
+# 项目根目录(gui/ 的上一级)。安装版代码只读，数据由启动器或上面的
+# Windows 默认规则放进当前用户目录。
+ROOT = _runtime_root()
+DATA_ROOT = _default_data_root()
 CONFIG_PATH = os.path.join(DATA_ROOT, "config.json")
 
 # 常用模型:(值, 显示名)。顺序 = 推荐顺序。

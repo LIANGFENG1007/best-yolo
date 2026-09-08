@@ -5,10 +5,38 @@
 QProcess 的信号本来就在 Qt 主线程派发,不用自己做线程转发,也不会卡界面。
 """
 import os
+import ntpath
 import sys
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
 import core
+
+
+def process_command(script, args, *, frozen=None, platform_name=None,
+                    executable=None, worker_exe=None):
+    """返回 QProcess 要运行的程序与参数。
+
+    Windows GUI 冻结版没有 python.exe，也不能把 BestYolo.exe 当 Python
+    解释器使用，所以标注和导出交给安装目录里的控制台 worker。
+    可选参数只给跨平台测试使用。
+    """
+    is_frozen = getattr(sys, "frozen", False) if frozen is None else bool(frozen)
+    platform_name = os.name if platform_name is None else platform_name
+    executable = sys.executable if executable is None else executable
+    args = list(args)
+    if is_frozen and platform_name == "nt":
+        path_module = ntpath
+        mode = {
+            "autolabel_qwen.py": "label",
+            "build_dataset.py": "dataset",
+        }.get(path_module.basename(script))
+        if not mode:
+            raise ValueError(f"未知的后台任务: {path_module.basename(script)}")
+        worker = (worker_exe or os.environ.get("BEST_YOLO_WORKER_EXE") or
+                  path_module.join(path_module.dirname(executable),
+                                   "BestYoloWorker.exe"))
+        return worker, [mode] + args
+    return executable, ["-u", script] + args
 
 
 class ScriptRunner(QObject):
@@ -33,10 +61,16 @@ class ScriptRunner(QObject):
         self._buf = ""
         self._stopping = False
         p = QProcess(self)
-        p.setProgram(sys.executable)      # 用当前解释器 = venv 里的 python
+        try:
+            program, proc_args = process_command(script, args)
+        except Exception as e:
+            self.line.emit(f"✗ 启动失败: {e}")
+            self.finished.emit(1)
+            return False
+        p.setProgram(program)
         # -u = 不缓冲输出。管道模式下 Python 默认按块缓冲,
         # 日志会攒一大坨才冒出来,看着像卡死(重试等待时尤其明显)。
-        p.setArguments(["-u", script] + list(args))
+        p.setArguments(proc_args)
         p.setWorkingDirectory(workdir)
         p.setProcessChannelMode(QProcess.MergedChannels)  # stderr 也收进来
         qe = QProcessEnvironment()
@@ -49,7 +83,7 @@ class ScriptRunner(QObject):
         self.proc = p
         p.start()
         if not p.waitForStarted(5000):
-            self.line.emit("✗ 启动失败:无法运行 " + sys.executable)
+            self.line.emit("✗ 启动失败:无法运行 " + program)
             self.proc = None
             self.finished.emit(1)
             return False

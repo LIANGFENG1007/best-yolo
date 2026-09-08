@@ -30,7 +30,7 @@ from packaging.requirements import Requirement
 
 
 PACKAGE = "best-yolo"
-VERSION = "1.0.0-3"
+VERSION = "1.0.0-4"
 ARCH = "amd64"
 MAINTAINER = "LIANGFENG1007 <292772460+LIANGFENG1007@users.noreply.github.com>"
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +48,7 @@ RUNTIME_DISTS = (
 ROOT_FILES = (
     "autolabel_qwen.py",
     "build_dataset.py",
+    "palette.py",
 )
 
 GUI_FILES = (

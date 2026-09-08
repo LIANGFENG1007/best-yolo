@@ -12,8 +12,12 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}-${{ inputs.version }}
+  cancel-in-progress: false
+
 env:
-  DEBIAN_REVISION: "3"
+  DEBIAN_REVISION: "4"
 
 jobs:
   deb:
@@ -67,17 +71,172 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: best-yolo-${{ steps.version.outputs.version }}-ubuntu22.04-amd64
+          retention-days: 7
           path: |
             dist/*.deb
             dist/*.deb.sha256
             dist/INSTALL-Ubuntu22.04-zh-CN.txt
+
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          architecture: x64
+          cache: pip
+          cache-dependency-path: |
+            packaging/requirements-deb.lock
+            packaging/requirements-windows-build.lock
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r packaging/requirements-deb.lock -r packaging/requirements-windows-build.lock
+      - name: Locate Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is missing: $iscc" }
+          "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & $iscc /?
+      - name: Download and verify Microsoft Visual C++ runtime
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "VC_redist.x64.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $target
+          $signature = Get-AuthenticodeSignature $target
+          if ($signature.Status -ne "Valid") { throw "VC++ runtime signature is $($signature.Status)" }
+          if ($signature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+            throw "VC++ runtime is not signed by Microsoft Corporation"
+          }
+          "VC_REDIST_PATH=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Test Windows packaging logic
+        shell: pwsh
+        run: |
+          python -m py_compile autolabel_qwen.py build_dataset.py palette.py gui/app.py gui/core.py gui/promptai.py gui/runner.py packaging/build_windows.py packaging/windows_entry.py packaging/windows_worker.py
+          python -B packaging/test_windows_packaging.py
+          $env:QT_QPA_PLATFORM = "offscreen"
+          python -B gui/test_shortcuts.py
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION
+          } else {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Build Windows installer
+        shell: pwsh
+        run: python packaging/build_windows.py --version "${{ steps.version.outputs.version }}" --vc-redist "$env:VC_REDIST_PATH"
+      - name: Validate, install, exercise and uninstall
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $setup = Resolve-Path "dist\BestYolo-Setup-$version-win64.exe"
+          $checksum = Resolve-Path "dist\BestYolo-Setup-$version-win64.exe.sha256"
+          $expected = ((Get-Content $checksum) -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Installer SHA256 mismatch" }
+
+          $installDir = Join-Path $env:RUNNER_TEMP "BestYoloInstalled"
+          $install = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$installDir" -Wait -PassThru
+          if ($install.ExitCode -notin 0, 3010) { throw "Installer exit code: $($install.ExitCode)" }
+          $app = Join-Path $installDir "BestYolo.exe"
+          $worker = Join-Path $installDir "BestYoloWorker.exe"
+          if (-not (Test-Path $app) -or -not (Test-Path $worker)) { throw "Installed executables are missing" }
+
+          $smokeRoot = Join-Path $env:RUNNER_TEMP "BestYoloSmoke"
+          New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
+          $env:BEST_YOLO_DATA_DIR = Join-Path $smokeRoot "data"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $smokeJson = Join-Path $smokeRoot "gui-smoke.json"
+          $smoke = Start-Process -FilePath $app -ArgumentList "--smoke-test", $smokeJson -Wait -PassThru
+          if ($smoke.ExitCode -ne 0 -or -not (Test-Path $smokeJson)) { throw "Frozen GUI smoke test failed" }
+          $smokeResult = Get-Content $smokeJson -Raw | ConvertFrom-Json
+          if (-not $smokeResult.smoke_ok -or -not $smokeResult.worker_exists -or $smokeResult.pages -ne 5) {
+            throw "Frozen GUI reported an invalid runtime"
+          }
+
+          $workerLog = Join-Path $smokeRoot "worker-self-test.log"
+          $workerErr = Join-Path $smokeRoot "worker-self-test.err"
+          $workerTest = Start-Process -FilePath $worker -ArgumentList "self-test" -RedirectStandardOutput $workerLog -RedirectStandardError $workerErr -Wait -PassThru
+          if ($workerTest.ExitCode -ne 0 -or (Get-Content $workerLog -Raw) -notmatch '"ok": true') {
+            throw "Frozen worker self-test failed: $(Get-Content $workerErr -Raw)"
+          }
+
+          $images = Join-Path $smokeRoot "images"
+          $labels = Join-Path $smokeRoot "labels"
+          $dataset = Join-Path $smokeRoot "dataset"
+          New-Item -ItemType Directory -Force -Path $images, $labels | Out-Null
+          python -c "from PIL import Image; Image.new('RGB',(32,24),'white').save(r'$images\sample.png')"
+          "0 0.5 0.5 0.25 0.25" | Out-File -FilePath "$labels\sample.txt" -Encoding ascii
+          $datasetLog = Join-Path $smokeRoot "dataset.log"
+          $datasetErr = Join-Path $smokeRoot "dataset.err"
+          $datasetTest = Start-Process -FilePath $worker -ArgumentList "dataset", "--images", $images, "--labels", $labels, "--out", $dataset, "--classes", "猫,狗", "--ext", "auto" -RedirectStandardOutput $datasetLog -RedirectStandardError $datasetErr -Wait -PassThru
+          if ($datasetTest.ExitCode -ne 0) { throw "Frozen dataset worker failed: $(Get-Content $datasetErr -Raw)" }
+          python -c "import pathlib,yaml; p=pathlib.Path(r'$dataset'); d=yaml.safe_load((p/'data.yaml').read_text(encoding='utf-8')); assert d['names']=={0:'猫',1:'狗'}; assert (p/'images/train/sample.png').is_file()"
+
+          $preserveDir = Join-Path $env:LOCALAPPDATA "BestYolo"
+          New-Item -ItemType Directory -Force -Path $preserveDir | Out-Null
+          $marker = Join-Path $preserveDir "uninstall-preserves-data.txt"
+          "keep" | Out-File -FilePath $marker -Encoding ascii
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exit code: $($uninstall.ExitCode)" }
+          if (Test-Path $app) { throw "Application remained after uninstall" }
+          if (-not (Test-Path $marker)) { throw "Uninstall deleted user data" }
+          Remove-Item $marker -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: best-yolo-${{ steps.version.outputs.version }}-windows10-x64
+          retention-days: 7
+          path: |
+            dist/BestYolo-Setup-*-win64.exe
+            dist/BestYolo-Setup-*-win64.exe.sha256
+            dist/INSTALL-Windows10-zh-CN.txt
+
+  publish:
+    needs: [deb, windows]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Resolve release tag
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG="v$INPUT_VERSION"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          NOTES="docs/release-notes/$TAG.md"
+          if [ ! -f "$NOTES" ]; then
+            echo "缺少 $NOTES；每个版本必须写明新增功能和修复内容" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
+          ls -lh release-assets
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/*.deb dist/*.deb.sha256 dist/INSTALL-Ubuntu22.04-zh-CN.txt --clobber
+            gh release upload "$TAG" release-assets/* --clobber
+            gh release edit "$TAG" --notes-file "${{ steps.version.outputs.notes }}" --title "Best yolo $TAG" --latest
           else
-            gh release create "$TAG" dist/*.deb dist/*.deb.sha256 dist/INSTALL-Ubuntu22.04-zh-CN.txt --notes-file packaging/release-notes.zh-CN.md --title "Best yolo $TAG"
+            gh release create "$TAG" release-assets/* --notes-file "${{ steps.version.outputs.notes }}" --title "Best yolo $TAG" --latest
           fi

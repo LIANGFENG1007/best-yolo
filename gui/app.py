@@ -62,7 +62,7 @@ def palette():
     if PALETTE is None:
         try:
             sys.path.insert(0, core.ROOT)
-            from autolabel_qwen import PALETTE as P
+            from palette import PALETTE as P
             PALETTE = P
         except Exception:
             PALETTE = [(74, 158, 255)]

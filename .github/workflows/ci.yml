@@ -26,9 +26,11 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install -r packaging/requirements-deb.lock
       - name: Compile source
-        run: python -m py_compile autolabel_qwen.py build_dataset.py gui/*.py packaging/build_deb.py
+        run: python -m py_compile autolabel_qwen.py build_dataset.py palette.py gui/*.py packaging/build_deb.py packaging/build_windows.py packaging/windows_entry.py packaging/windows_worker.py
       - name: Run logic regression suite
-        run: python -B gui/test_gui.py
+        run: |
+          python -B gui/test_gui.py
+          python -B packaging/test_windows_packaging.py
       - name: Run real Qt shortcut suite
         env:
           QT_QPA_PLATFORM: offscreen

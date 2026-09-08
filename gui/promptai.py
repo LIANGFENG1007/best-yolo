@@ -21,6 +21,29 @@ C_AI = (255, 64, 64)
 C_HUMAN = (64, 220, 96)
 
 
+def _load_font(px, bold=False):
+    """加载系统中文字体，兼容 Ubuntu 和 Windows。"""
+    from PIL import ImageFont
+    windir = os.environ.get("WINDIR", r"C:\Windows")
+    win_names = (["msyhbd.ttc", "simhei.ttf", "msyh.ttc"] if bold else
+                 ["msyh.ttc", "msyhbd.ttc", "simhei.ttf"])
+    candidates = [os.path.join(windir, "Fonts", name) for name in win_names]
+    candidates += [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for path in candidates:
+        if not os.path.isfile(path):
+            continue
+        try:
+            return ImageFont.truetype(path, int(px), index=0)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
 def _load_rgb(path, max_side=1280):
     """读图并限制长边。太大既慢又贵,1280 对判断框准不准足够了。"""
     from PIL import Image
@@ -37,15 +60,11 @@ def compose_diff_image(img_path, base_boxes, cur_boxes, names, max_side=1280):
 
     只画框不画填充,否则会盖住物体本身 —— 模型就看不出框对不对了。
     """
-    from PIL import ImageDraw, ImageFont
+    from PIL import ImageDraw
     im = _load_rgb(img_path, max_side)
     d = ImageDraw.Draw(im)
     W, H = im.size
-    try:
-        f = ImageFont.truetype(
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 14, index=0)
-    except Exception:
-        f = ImageFont.load_default()
+    f = _load_font(14)
 
     taken = []          # 已占用的标签区域,避免两个标签叠在一起谁都看不清
 
@@ -323,7 +342,7 @@ def render_boxed(img_path, boxes, names, colors, max_side=1400, cache_dir=None):
     画好的图缓存到 cache_dir,文件名带标签的修改时间:标签一改缓存就失效,
     不会给你看旧图。
     """
-    from PIL import ImageDraw, ImageFont
+    from PIL import ImageDraw
     if not (img_path and os.path.isfile(img_path)):
         return img_path
     if not boxes:
@@ -350,12 +369,7 @@ def render_boxed(img_path, boxes, names, colors, max_side=1400, cache_dir=None):
     W, H = im.size
     # 线宽跟着图的大小走,小图上 3px 就够粗,大图上要更粗才看得见
     lw = max(2, int(min(W, H) / 300))
-    try:
-        f = ImageFont.truetype(
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            max(13, int(min(W, H) / 45)), index=0)
-    except Exception:
-        f = ImageFont.load_default()
+    f = _load_font(max(13, int(min(W, H) / 45)))
     for b in boxes:
         cid = b["cid"]
         col = tuple(colors[cid % len(colors)]) if colors else (255, 64, 64)

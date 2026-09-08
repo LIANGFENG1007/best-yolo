@@ -5,9 +5,11 @@
 
   [![CI](https://github.com/LIANGFENG1007/best-yolo/actions/workflows/ci.yml/badge.svg)](https://github.com/LIANGFENG1007/best-yolo/actions/workflows/ci.yml)
   [![Release](https://img.shields.io/github/v/release/LIANGFENG1007/best-yolo)](https://github.com/LIANGFENG1007/best-yolo/releases/latest)
+  ![Windows 10+](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
   ![Ubuntu 22.04](https://img.shields.io/badge/Ubuntu-22.04-E95420?logo=ubuntu&logoColor=white)
 
   [Download](https://github.com/LIANGFENG1007/best-yolo/releases/latest) ·
+  [Version archive](docs/releases.md) ·
   [中文](README.md)
 </div>
 
@@ -24,7 +26,13 @@ Best yolo combines Qwen-VL assisted auto-labeling, manual bounding-box correctio
 - Extract a selected video interval and export deterministic train/validation splits.
 - Configure 77 commands through a searchable shortcut editor.
 
-## Install on Ubuntu 22.04 amd64
+## Windows 10 / 11 x64
+
+Download `BestYolo-Setup-*-win64.exe` from [Releases](https://github.com/LIANGFENG1007/best-yolo/releases/latest) and run the installer. You can select the installation directory. Python, Qt, OpenCV, the Microsoft Visual C++ runtime, and all other runtime dependencies are included. Windows 10 version 1809 or newer is required.
+
+The installer is currently unsigned, so Microsoft SmartScreen may show an unknown-publisher warning. Verify the download against the accompanying `.sha256` file before running it.
+
+## Ubuntu 22.04 amd64
 
 Download the `.deb` from [Releases](https://github.com/LIANGFENG1007/best-yolo/releases/latest), then run:
 
@@ -34,7 +42,7 @@ sudo apt install ./best-yolo_*_amd64.deb
 
 Launch **Best yolo** from the application menu. The release bundles its Python runtime dependencies. Access to Ubuntu repositories may be required to install missing system GUI libraries.
 
-The public package is the cloud API edition. GPU-specific PyTorch, CUDA, local model weights, and training dependencies remain optional source installations. See [development](docs/development.md), [privacy](docs/privacy.md), and [troubleshooting](docs/troubleshooting.md).
+Both public installers are the cloud API edition. GPU-specific PyTorch, CUDA, local model weights, and training dependencies remain optional source installations. See [development](docs/development.md), [privacy](docs/privacy.md), and [troubleshooting](docs/troubleshooting.md).
 
 ## License status
 

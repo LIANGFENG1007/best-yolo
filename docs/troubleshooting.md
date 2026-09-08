@@ -2,10 +2,26 @@
 
 ## 一键诊断
 
+Windows：从开始菜单启动软件；启动错误记录在 `%LOCALAPPDATA%\BestYolo\logs\start.log`。也可以运行：
+
+```powershell
+& "C:\Program Files\Best yolo\BestYolo.exe" --diagnose
+```
+
+Ubuntu：
+
 ```bash
 best-yolo --diagnose
 best-yolo --show-log
 ```
+
+## Windows SmartScreen 提示未知发布者
+
+当前安装程序没有商业代码签名证书。先把安装程序的 `Get-FileHash` 结果与 Release 中同名 `.sha256` 文件对比；一致后选择“更多信息”和“仍要运行”。不要从第三方网盘下载安装包。
+
+## Windows 安装后无法启动
+
+确认系统是 64 位 Windows 10 1809+ 或 Windows 11，并查看 `%LOCALAPPDATA%\BestYolo\logs\start.log`。安装器内置 Python、Qt、OpenCV 和微软 VC++ 运行库，不需要另装 Python。
 
 ## 无法启动或提示 Permission denied
 

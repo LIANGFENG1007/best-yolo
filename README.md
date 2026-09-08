@@ -6,11 +6,13 @@
 
   [![CI](https://github.com/LIANGFENG1007/best-yolo/actions/workflows/ci.yml/badge.svg)](https://github.com/LIANGFENG1007/best-yolo/actions/workflows/ci.yml)
   [![Release](https://img.shields.io/github/v/release/LIANGFENG1007/best-yolo?display_name=tag&sort=semver)](https://github.com/LIANGFENG1007/best-yolo/releases/latest)
+  ![Windows 10+](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
   ![Ubuntu 22.04](https://img.shields.io/badge/Ubuntu-22.04-E95420?logo=ubuntu&logoColor=white)
-  ![Architecture](https://img.shields.io/badge/architecture-amd64-4A9EFF)
+  ![Architecture](https://img.shields.io/badge/architecture-x64-4A9EFF)
   ![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
 
   [下载最新版](https://github.com/LIANGFENG1007/best-yolo/releases/latest) ·
+  [版本目录](docs/releases.md) ·
   [安装文档](docs/installation.md) ·
   [English](README.en.md)
 </div>
@@ -51,9 +53,19 @@
   </tr>
 </table>
 
-## Ubuntu 22.04 安装
+## 下载安装
 
-从 [Releases](https://github.com/LIANGFENG1007/best-yolo/releases/latest) 下载最新的 `amd64.deb`，然后在下载目录运行：
+所有安装包都在 [Releases](https://github.com/LIANGFENG1007/best-yolo/releases/latest)。发布版是云端 API 版，使用者填写自己的 API Key；安装包不包含任何账号凭据、项目图片或标签。
+
+### Windows 10 / 11 x64
+
+下载 `BestYolo-Setup-*-win64.exe` 后双击安装。安装向导允许选择安装目录，默认是 `C:\Program Files\Best yolo`，也可以创建桌面快捷方式。
+
+安装包内置 Python、PySide6、OpenAI SDK、Pillow、OpenCV、NumPy、PyYAML 和微软 VC++ 运行库，全新的 64 位 Windows 10 1809+ 或 Windows 11 无需预装开发环境。当前安装程序没有商业代码签名证书；若 SmartScreen 提示未知发布者，请先用同名 `.sha256` 文件核对下载完整性。详细步骤见 [安装文档](docs/installation.md)。
+
+### Ubuntu 22.04 x86_64
+
+下载最新的 `amd64.deb`，然后在下载目录运行：
 
 ```bash
 sudo apt install ./best-yolo_*_amd64.deb
@@ -65,7 +77,7 @@ sudo apt install ./best-yolo_*_amd64.deb
 best-yolo
 ```
 
-发布版面向 Ubuntu 22.04 x86_64，内置 PySide6、OpenAI SDK、Pillow、OpenCV、NumPy 和 PyYAML。首次安装缺少系统图形库时，`apt` 会从 Ubuntu 软件源补齐。详细说明见 [安装文档](docs/installation.md)。
+Ubuntu 安装包内置 Python 运行依赖；首次安装缺少系统图形库时，`apt` 会从 Ubuntu 软件源补齐。
 
 ## 工作流程
 
@@ -85,7 +97,7 @@ flowchart LR
 ## 数据与隐私
 
 - Release 不包含任何 API Key、项目图片、标签或个人路径。
-- API Key 只保存在当前用户的 `~/.local/share/best-yolo/.gui_state.json`，权限为 `600`。
+- API Key 只保存在当前用户目录：Windows 为 `%LOCALAPPDATA%\BestYolo`，Ubuntu 为 `~/.local/share/best-yolo`。
 - 只有用户主动开始云端标注或提示词分析时，选中的图片才会发送到所配置的 API 接入点。
 - 卸载软件不会删除用户项目；完整说明见 [隐私与数据](docs/privacy.md)。
 
@@ -111,7 +123,7 @@ best-yolo --show-log
 
 ## 项目状态
 
-当前 Release 是云端 API 版。PyTorch、CUDA、本地模型权重和训练环境与显卡及驱动强绑定，因此不塞进通用 `.deb`；源码仍保留这些可选入口。
+当前 Release 提供 Windows 10/11 x64 安装程序和 Ubuntu 22.04 amd64 安装包。PyTorch、CUDA、本地模型权重和训练环境与显卡及驱动强绑定，因此不塞进通用安装包；源码仍保留这些可选入口。
 
 ## 许可证
 

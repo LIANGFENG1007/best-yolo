@@ -27,11 +27,14 @@ import json
 import glob
 import base64
 import argparse
+import math
 import time
 import random
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image, ImageDraw
+
+from palette import PALETTE
 
 
 # ---------------- 限流与重试 ----------------
@@ -110,9 +113,33 @@ def factor_for(model_id):
 
 
 def smart_dims(w, h, min_pixels, max_pixels, factor):
-    from qwen_vl_utils import smart_resize
-    hb, wb = smart_resize(h, w, factor=factor, min_pixels=min_pixels, max_pixels=max_pixels)
-    return wb, hb
+    """按 Qwen-VL 的图像预处理规则计算对齐后的参考尺寸。
+
+    云端 API 只需要这段纯数学逻辑。直接导入 qwen-vl-utils 会连带要求
+    PyTorch 和 PyAV，不适合轻量发布版。
+    """
+    w, h, factor = int(w), int(h), int(factor)
+    min_pixels, max_pixels = int(min_pixels), int(max_pixels)
+    if w <= 0 or h <= 0 or factor <= 0:
+        raise ValueError("图像宽高和对齐因子必须大于 0")
+    if max_pixels < min_pixels:
+        raise ValueError("max_pixels 不能小于 min_pixels")
+    ratio = max(w, h) / min(w, h)
+    if ratio > 200:
+        raise ValueError(f"图像长宽比不能超过 200，当前为 {ratio:.1f}")
+
+    aligned_w = max(factor, round(w / factor) * factor)
+    aligned_h = max(factor, round(h / factor) * factor)
+    pixels = aligned_w * aligned_h
+    if pixels > max_pixels:
+        scale = math.sqrt((w * h) / max_pixels)
+        aligned_w = max(factor, math.floor(w / scale / factor) * factor)
+        aligned_h = max(factor, math.floor(h / scale / factor) * factor)
+    elif pixels < min_pixels:
+        scale = math.sqrt(min_pixels / (w * h))
+        aligned_w = max(factor, math.ceil(w * scale / factor) * factor)
+        aligned_h = max(factor, math.ceil(h * scale / factor) * factor)
+    return aligned_w, aligned_h
 
 
 def parse_boxes(text):
@@ -231,31 +258,14 @@ def to_yolo(label_id, bb, div_w, div_h):
     return f"{label_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}"
 
 
-# 每个类别一个高对比度颜色(按类别 id 循环取用)。16 类要 16 色,否则颜色撞车看不出区别。
-PALETTE = [
-    (255, 59, 48),    # 红
-    (52, 199, 89),    # 绿
-    (0, 122, 255),    # 蓝
-    (255, 204, 0),    # 黄
-    (175, 82, 222),   # 紫
-    (255, 149, 0),    # 橙
-    (90, 200, 250),   # 天蓝
-    (255, 45, 146),   # 品红
-    (0, 199, 190),    # 青
-    (162, 132, 94),   # 棕
-    (142, 250, 0),    # 黄绿
-    (255, 255, 255),  # 白
-    (88, 86, 214),    # 靛
-    (255, 112, 82),   # 珊瑚
-    (0, 105, 60),     # 深绿
-    (120, 0, 60),     # 酒红
-]
-
-
 def _load_font(px):
     """尽量加载一个 px 大小的字体;优先中文字体(含中英文,不乱码);都失败退回默认。"""
     # (路径, index):.ttc 是字体集合,需指定 index
+    windir = os.environ.get("WINDIR", r"C:\Windows")
     candidates = [
+        (os.path.join(windir, "Fonts", "msyhbd.ttc"), 0),
+        (os.path.join(windir, "Fonts", "msyh.ttc"), 0),
+        (os.path.join(windir, "Fonts", "simhei.ttf"), 0),
         ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", 0),  # 中英文都支持,首选
         ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", 0),
         ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 0), # 仅英文,兜底

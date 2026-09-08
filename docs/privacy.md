@@ -2,13 +2,17 @@
 
 ## 本地保存
 
-Debian 安装版使用以下目录：
+Windows 安装版使用：
+
+- 项目、配置、API Key 和日志：`%LOCALAPPDATA%\BestYolo`
+
+Ubuntu Debian 安装版使用：
 
 - 项目、配置和 API Key：`~/.local/share/best-yolo`
 - 启动日志：`~/.local/state/best-yolo/start.log`
 - 缓存：`~/.cache/best-yolo`
 
-API Key 只存在全局状态文件中，不复制到每个项目配置；状态文件权限固定为 `600`。Key 当前是本地明文保存，因此不要分享 `.gui_state.json`，也不要把整个用户数据目录上传到 Issue。
+API Key 只存在全局状态文件中，不复制到每个项目配置。Ubuntu 状态文件权限固定为 `600`；Windows 文件继承当前用户 Local AppData 的访问控制。Key 当前是本地明文保存，因此不要分享 `.gui_state.json`，也不要把整个用户数据目录上传到 Issue。
 
 ## 网络请求
 

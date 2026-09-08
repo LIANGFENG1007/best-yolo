@@ -1,41 +1,41 @@
-name: Bug report
-description: Report a reproducible problem in the latest release
+name: 问题报告
+description: 报告最新版中可以复现的问题
 title: "[Bug] "
 labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: "Do not upload `.gui_state.json` or API keys. Remove private paths and endpoints from logs."
+      value: "不要上传 `.gui_state.json` 或 API Key；请先删除日志中的私人路径和接入点。"
   - type: input
     id: version
     attributes:
-      label: Version
-      placeholder: "1.0.0-3"
+      label: 软件版本
+      placeholder: "v1.0.0（Windows）或 1.0.0-4（Ubuntu）"
     validations:
       required: true
   - type: dropdown
-    id: session
+    id: system
     attributes:
-      label: Desktop session
-      options: [Wayland, X11, Unknown]
+      label: 操作系统
+      options: [Windows 11, Windows 10, Ubuntu 22.04 Wayland, Ubuntu 22.04 X11, 其他]
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Reproduction steps
-      placeholder: "1. Open…\n2. Click…\n3. Observe…"
+      label: 复现步骤
+      placeholder: "1. 打开……\n2. 点击……\n3. 出现……"
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: 预期行为
     validations:
       required: true
   - type: textarea
     id: diagnostics
     attributes:
-      label: Sanitized diagnostic output
-      description: Output of `best-yolo --diagnose` and relevant log lines, with secrets removed.
+      label: 已脱敏的诊断信息
+      description: Windows 日志位于 `%LOCALAPPDATA%\BestYolo\logs\start.log`；Ubuntu 可运行 `best-yolo --diagnose`。请先删除密钥和私人路径。
       render: shell
