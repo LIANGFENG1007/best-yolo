@@ -101,7 +101,7 @@ jobs:
           $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is missing: $iscc" }
           "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          & $iscc /?
+          Write-Host "Using Inno Setup: $iscc"
       - name: Download and verify Microsoft Visual C++ runtime
         shell: pwsh
         run: |
