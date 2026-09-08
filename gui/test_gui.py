@@ -19,6 +19,8 @@ import re
 import subprocess
 import contextlib
 
+os.environ["BEST_YOLO_DISABLE_UPDATE_CHECK"] = "1"
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 

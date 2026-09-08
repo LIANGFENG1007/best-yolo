@@ -794,7 +794,7 @@ def install():
     widget_names = ("QWidget", "QMainWindow", "QVBoxLayout", "QHBoxLayout",
                     "QGridLayout", "QLabel", "QPushButton", "QLineEdit",
                     "QComboBox", "QSpinBox", "QDoubleSpinBox", "QPlainTextEdit",
-                    "QTextEdit", "QTableWidget", "QSplitter", "QCheckBox",
+                    "QTextEdit", "QTextBrowser", "QTableWidget", "QSplitter", "QCheckBox",
                     "QProgressBar", "QFrame", "QScrollArea", "QStatusBar",
                     "QTreeWidget", "QKeySequenceEdit")
     for n in widget_names:

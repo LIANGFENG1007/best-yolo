@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: 软件版本
-      placeholder: "v1.0.0（Windows）或 1.0.0-4（Ubuntu）"
+      placeholder: "v1.1.0（Windows）或 1.1.0-1（Ubuntu）"
     validations:
       required: true
   - type: dropdown

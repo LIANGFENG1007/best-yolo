@@ -30,6 +30,7 @@ jobs:
       - name: Run logic regression suite
         run: |
           python -B gui/test_gui.py
+          python -B gui/test_updates.py
           python -B packaging/test_windows_packaging.py
       - name: Run real Qt shortcut suite
         env:

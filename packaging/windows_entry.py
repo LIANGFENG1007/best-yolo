@@ -40,6 +40,7 @@ def configure_environment():
 
 
 def _diagnostics():
+    from appmeta import APP_VERSION
     import cv2
     import numpy
     import openai
@@ -50,6 +51,7 @@ def _diagnostics():
     worker = Path(os.environ.get("BEST_YOLO_WORKER_EXE", ""))
     return {
         "python": sys.version,
+        "app_version": APP_VERSION,
         "executable": sys.executable,
         "data_dir": os.environ["BEST_YOLO_DATA_DIR"],
         "worker": str(worker),
@@ -72,6 +74,7 @@ def _write_json(path, data):
 
 def _smoke_test(output):
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    os.environ["BEST_YOLO_DISABLE_UPDATE_CHECK"] = "1"
     from PySide6.QtWidgets import QApplication
     import app as gui_app
 
@@ -86,7 +89,10 @@ def _smoke_test(output):
     result.update({
         "pages": window.pages.count(),
         "window_title": window.windowTitle(),
-        "smoke_ok": window.pages.count() == 5 and window.windowTitle() == "Best yolo",
+        "update_button": window.btn_update.text(),
+        "smoke_ok": (window.pages.count() == 5 and
+                     window.windowTitle() == "Best yolo" and
+                     window.btn_update.text() == "检测更新"),
     })
     _write_json(output, result)
     window.close()

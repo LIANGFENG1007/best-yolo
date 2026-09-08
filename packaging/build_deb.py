@@ -30,7 +30,7 @@ from packaging.requirements import Requirement
 
 
 PACKAGE = "best-yolo"
-VERSION = "1.0.0-4"
+VERSION = "1.1.0-1"
 ARCH = "amd64"
 MAINTAINER = "LIANGFENG1007 <292772460+LIANGFENG1007@users.noreply.github.com>"
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +53,7 @@ ROOT_FILES = (
 
 GUI_FILES = (
     "app.py",
+    "appmeta.py",
     "boxedit.py",
     "core.py",
     "promptai.py",
@@ -60,6 +61,7 @@ GUI_FILES = (
     "runner.py",
     "shortcut_settings.py",
     "theme.py",
+    "update_check.py",
     "video.py",
     "widgets.py",
 )
@@ -231,7 +233,7 @@ def write_launcher(stage):
         export BEST_YOLO_DATA_DIR="$DATA_DIR"
         export BEST_YOLO_API_ONLY=1
         export BEST_YOLO_READONLY_INSTALL=1
-        export PYTHONPATH="$APP_DIR/vendor"
+        export PYTHONPATH="$APP_DIR/vendor:$APP_DIR/app:$APP_DIR/app/gui"
         export PYTHONNOUSERSITE=1
         export PYTHONDONTWRITEBYTECODE=1
         export PYTHONUTF8=1
@@ -253,7 +255,7 @@ def write_launcher(stage):
             printf 'Best yolo runtime: %s\n' "$APP_DIR"
             printf 'User data: %s\n' "$DATA_DIR"
             printf 'Log: %s\n' "$LOG_FILE"
-            /usr/bin/python3 -c 'import sys, PySide6, PIL, openai, cv2, yaml, numpy; from PySide6.QtWidgets import QApplication, QWidget; q=QApplication.instance() or QApplication([]); w=QWidget(); print(sys.version); print("Qt platform", q.platformName()); print("PySide6", PySide6.__version__); print("Pillow", PIL.__version__); print("OpenAI", openai.__version__); print("OpenCV", cv2.__version__); print("NumPy", numpy.__version__)'
+            /usr/bin/python3 -c 'import sys, PySide6, PIL, openai, cv2, yaml, numpy; from appmeta import APP_VERSION; from PySide6.QtWidgets import QApplication, QWidget; q=QApplication.instance() or QApplication([]); w=QWidget(); print("Best yolo", APP_VERSION); print(sys.version); print("Qt platform", q.platformName()); print("PySide6", PySide6.__version__); print("Pillow", PIL.__version__); print("OpenAI", openai.__version__); print("OpenCV", cv2.__version__); print("NumPy", numpy.__version__)'
             exit $?
         fi
 

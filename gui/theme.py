@@ -29,7 +29,7 @@ C = {
 # 等宽字体:日志窗用。列几个常见的,取系统里有的第一个。
 MONO = '"JetBrains Mono","Noto Sans Mono","DejaVu Sans Mono","Consolas",monospace'
 # UI 字体:优先中文字体,避免中文回退成方框
-UI_FONT = '"Noto Sans CJK SC","Source Han Sans SC","WenQuanYi Zen Hei","Ubuntu",sans-serif'
+UI_FONT = '"Microsoft YaHei UI","Noto Sans CJK SC","Source Han Sans SC","WenQuanYi Zen Hei","Segoe UI","Ubuntu",sans-serif'
 
 
 def apply_palette(app):
@@ -206,9 +206,33 @@ QWidget {{
     color: {C['text']};
     font-size: 15px;
     font-weight: 600;
-    padding: 18px 18px 4px 18px;
+    padding: 0;
     background: transparent;
 }}
+#UpdateCheckBtn, #UpdateAvailableBtn {{
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 50px;
+}}
+#UpdateCheckBtn {{
+    color: {C['accent_hi']};
+    background: rgba(74,158,255,22);
+    border: 1px solid {C['accent_lo']};
+}}
+#UpdateCheckBtn:hover {{
+    color: #FFFFFF;
+    background: {C['accent_lo']};
+    border-color: {C['accent']};
+}}
+#UpdateAvailableBtn {{
+    color: #FFFFFF;
+    background: {C['err']};
+    border: 1px solid {C['err']};
+}}
+#UpdateAvailableBtn:hover {{ background: #FF675F; border-color: #FF675F; }}
+#UpdateAvailableBtn:pressed {{ background: #C9352E; border-color: #C9352E; }}
 #BrandSub {{
     color: {C['text_faint']};
     font-size: 11px;
@@ -261,6 +285,23 @@ QWidget {{
     color: {C['text_dim']};
     font-size: 12px;
     background: transparent;
+}}
+#UpdateDialogTitle {{
+    color: {C['text']};
+    font-size: 20px;
+    font-weight: 600;
+    background: transparent;
+}}
+#UpdateDialogVersion {{
+    color: {C['text_dim']};
+    font-size: 12px;
+    background: transparent;
+}}
+#UpdateNotes {{
+    background: {C['bg']};
+    border: 1px solid {C['border']};
+    border-radius: 6px;
+    padding: 10px;
 }}
 
 /* ---------- 输入控件 ---------- */

@@ -9,6 +9,8 @@ import sys
 import tempfile
 import unittest
 
+os.environ["BEST_YOLO_DISABLE_UPDATE_CHECK"] = "1"
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -44,7 +46,7 @@ class ShortcutSettingsTests(unittest.TestCase):
 
     def test_registry_defaults_and_scoped_conflicts(self):
         defaults = S.default_bindings()
-        self.assertEqual(len(S.SHORTCUT_DEFINITIONS), 77)
+        self.assertEqual(len(S.SHORTCUT_DEFINITIONS), 78)
         self.assertEqual(len({d["section"] for d in S.SHORTCUT_DEFINITIONS}), 6)
         self.assertEqual(defaults["mark.save"], ["Ctrl+S"])
         self.assertEqual(S.find_conflicts(defaults), [])

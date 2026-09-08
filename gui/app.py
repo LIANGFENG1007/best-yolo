@@ -25,6 +25,7 @@ from PySide6.QtGui import (QDesktopServices, QTextCursor, QFont, QShortcut,
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QLabel, QPushButton, QLineEdit,
                                QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit,
+                               QTextBrowser, QDialog,
                                QTableWidget, QTableWidgetItem, QHeaderView,
                                QStackedWidget, QButtonGroup, QCheckBox, QSplitter,
                                QProgressBar, QMessageBox, QListWidget, QFrame,
@@ -33,6 +34,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QFileDialog)
 
 import core
+from appmeta import APP_VERSION
 from theme import stylesheet, apply_palette, C
 from widgets import (Card, PathPicker, FieldRow, ImageView, color_dot,
                      ThumbStrip, ImageDialog,
@@ -41,6 +43,7 @@ from widgets import (Card, PathPicker, FieldRow, ImageView, color_dot,
 import video as vid
 import promptai
 import shortcut_settings as hotkeys
+import update_check
 from rangebar import RangeBar, VideoView
 
 # 一次最多抽这么多张。间隔手滑填成 0.02 秒能抽出几万张,
@@ -75,6 +78,8 @@ class MainWindow(QMainWindow):
     # 而工作线程没有事件循环,回调永远不会执行(界面就一直卡在"获取中…")。
     # 信号槽跨线程时 Qt 会自动排队到接收者所在线程,这才是正确做法。
     models_ready = Signal(list, str)
+    update_ready = Signal(int, dict, str, bool)
+    update_page_ready = Signal(int, bool, str)
     # 页码。侧栏顺序 = 页面顺序,改顺序只改这里和上面的 addWidget
     PAGE_HOME, PAGE_MARK, PAGE_PROMPT, PAGE_DATASET, PAGE_VIDEO = range(5)
 
@@ -125,7 +130,18 @@ class MainWindow(QMainWindow):
         self._auto_timer.timeout.connect(self._autosave_tick)
         self._fetching = False        # 是否正在联网拉模型列表
         self._fetch_seq = 0           # 请求序号,用来忽略过期的响应
+        self._update_checking = False
+        self._update_check_seq = 0
+        self._update_handled_seq = 0
+        self._update_manual_wait = False
+        self._latest_release = {}
+        self._update_link_seq = 0
+        self._update_link_checking = False
+        self._update_dialog = None
+        self._update_go_button = None
         self.models_ready.connect(self._on_models)
+        self.update_ready.connect(self._on_update_ready)
+        self.update_page_ready.connect(self._on_update_page_ready)
         self.pai_progress.connect(self._on_pai_progress)
         self.pai_done.connect(self._on_pai_done)
         self.pai_thumb.connect(self._on_pai_thumb)
@@ -172,6 +188,9 @@ class MainWindow(QMainWindow):
         self._refresh_projects()
         self._load_to_ui()
         self._refresh_img_count()
+        if os.environ.get("BEST_YOLO_DISABLE_UPDATE_CHECK", "").strip().lower() \
+                not in ("1", "true", "yes"):
+            QTimer.singleShot(350, lambda: self._check_updates(manual=False))
 
     # ---------------- 侧边栏 ----------------
     def _build_sidebar(self):
@@ -183,11 +202,21 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(0, 0, 0, 12)
         lay.setSpacing(0)
 
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(18, 16, 10, 0)
+        brand_row.setSpacing(6)
         brand = QLabel("Best yolo")
         brand.setObjectName("Brand")
+        self.btn_update = QPushButton("检测更新")
+        self.btn_update.setObjectName("UpdateCheckBtn")
+        self.btn_update.setToolTip(f"检测 Best yolo 新版本（当前 v{APP_VERSION}）")
+        self.btn_update.setCursor(Qt.PointingHandCursor)
+        self.btn_update.clicked.connect(self._on_update_button)
+        brand_row.addWidget(brand, 1)
+        brand_row.addWidget(self.btn_update, 0, Qt.AlignRight | Qt.AlignVCenter)
         sub = QLabel("图片 → YOLO 数据集")
         sub.setObjectName("BrandSub")
-        lay.addWidget(brand)
+        lay.addLayout(brand_row)
         lay.addWidget(sub)
 
         self.nav = QButtonGroup(self)
@@ -218,6 +247,177 @@ class MainWindow(QMainWindow):
             b.clicked.connect(fn)
             lay.addWidget(b)
         return bar
+
+    # ---------------- 更新检查 ----------------
+    def _set_update_button(self, available=False, checking=False):
+        if checking:
+            text, name = "检测中…", "UpdateCheckBtn"
+            tip = "正在连接 GitHub 检测新版本"
+        elif available:
+            text, name = "发现更新", "UpdateAvailableBtn"
+            version = self._latest_release.get("version") or "新版本"
+            tip = f"发现 Best yolo v{version}，点击查看更新内容"
+        else:
+            text, name = "检测更新", "UpdateCheckBtn"
+            tip = f"检测 Best yolo 新版本（当前 v{APP_VERSION}）"
+        if hasattr(self, "_shortcut_bindings"):
+            tip += f"\n快捷键：{self._shortcut_text('global.check_updates')}"
+        self.btn_update.setText(text)
+        self.btn_update.setObjectName(name)
+        self.btn_update.setToolTip(tip)
+        try:
+            style = self.btn_update.style()
+            style.unpolish(self.btn_update)
+            style.polish(self.btn_update)
+            self.btn_update.update()
+        except Exception:
+            pass
+
+    def _check_updates(self, manual=False):
+        """后台检测 GitHub latest release；自动检查失败时完全静默。"""
+        if self._update_checking:
+            self._update_manual_wait = self._update_manual_wait or bool(manual)
+            if manual:
+                self._set_update_button(checking=True)
+            return
+        self._update_checking = True
+        self._update_check_seq += 1
+        seq = self._update_check_seq
+        if manual:
+            self._set_update_button(checking=True)
+
+        QTimer.singleShot(7000, lambda s=seq: self._update_check_timeout(s))
+
+        def work():
+            release, error = update_check.check_for_update(APP_VERSION, timeout=5.0)
+            try:
+                self.update_ready.emit(seq, release, error, bool(manual))
+            except RuntimeError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _update_check_timeout(self, seq):
+        if (self._closing or seq != self._update_check_seq or
+                seq <= self._update_handled_seq):
+            return
+        self._on_update_ready(seq, {}, update_check.NO_NETWORK_MESSAGE, False)
+
+    def _on_update_ready(self, seq, release, error, manual=False):
+        if (self._closing or seq != self._update_check_seq or
+                seq <= self._update_handled_seq):
+            return
+        self._update_handled_seq = seq
+        self._update_checking = False
+        show_feedback = bool(manual or self._update_manual_wait)
+        self._update_manual_wait = False
+        if error:
+            self._set_update_button(False)
+            if show_feedback:
+                QMessageBox.information(self, "没有网络", update_check.NO_NETWORK_MESSAGE)
+            return
+        self._latest_release = dict(release or {})
+        available = bool(self._latest_release.get("update_available"))
+        self._set_update_button(available)
+        if available and show_feedback:
+            self._show_update_dialog()
+        elif show_feedback:
+            version = self._latest_release.get("version") or APP_VERSION
+            QMessageBox.information(
+                self, "已经是最新版",
+                f"当前版本是 v{APP_VERSION}，GitHub 最新稳定版是 v{version}。")
+
+    def _on_update_button(self):
+        if self._latest_release.get("update_available"):
+            self._show_update_dialog()
+        else:
+            self._check_updates(manual=True)
+
+    def _show_update_dialog(self):
+        release = self._latest_release
+        if not release.get("update_available"):
+            self._check_updates(manual=True)
+            return
+        dlg = QDialog(self)
+        dlg.setObjectName("UpdateDialog")
+        dlg.setWindowTitle(f"发现 Best yolo v{release.get('version', '')}")
+        dlg.resize(700, 540)
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(22, 20, 22, 18)
+        layout.setSpacing(12)
+
+        title = QLabel(f"发现新版本 v{release.get('version', '')}")
+        title.setObjectName("UpdateDialogTitle")
+        layout.addWidget(title)
+        current = QLabel(f"当前版本 v{APP_VERSION} · 以下是新版本更新内容")
+        current.setObjectName("UpdateDialogVersion")
+        layout.addWidget(current)
+
+        notes = QTextBrowser()
+        notes.setObjectName("UpdateNotes")
+        notes.setOpenExternalLinks(False)
+        notes.setMarkdown(release.get("body") or "## 更新内容\n\n这个版本没有提供更新说明。")
+        layout.addWidget(notes, 1)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        later = QPushButton("稍后")
+        later.clicked.connect(dlg.reject)
+        go = QPushButton("前往 GitHub 发布页")
+        go.setObjectName("Primary")
+        go.clicked.connect(
+            lambda: self._probe_and_open_release(dlg, go, release.get("url", "")))
+        buttons.addWidget(later)
+        buttons.addWidget(go)
+        layout.addLayout(buttons)
+
+        self._update_dialog = dlg
+        self._update_go_button = go
+        dlg.exec()
+        self._update_link_seq += 1       # 关闭弹窗后作废仍在路上的网络结果
+        self._update_link_checking = False
+        self._update_dialog = None
+        self._update_go_button = None
+
+    def _probe_and_open_release(self, dlg, button, url):
+        if self._update_link_checking:
+            return
+        self._update_link_checking = True
+        self._update_link_seq += 1
+        seq = self._update_link_seq
+        button.setEnabled(False)
+        button.setText("正在连接…")
+
+        def work():
+            ok, error = update_check.probe_release_page(url, timeout=5.0)
+            try:
+                self.update_page_ready.emit(seq, ok, error)
+            except RuntimeError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_update_page_ready(self, seq, ok, error):
+        if self._closing or seq != self._update_link_seq:
+            return
+        self._update_link_checking = False
+        button = self._update_go_button
+        dlg = self._update_dialog
+        if button is not None:
+            button.setEnabled(True)
+            button.setText("前往 GitHub 发布页")
+        if not ok:
+            QMessageBox.information(
+                dlg or self, "没有网络", error or update_check.NO_NETWORK_MESSAGE)
+            return
+        url = self._latest_release.get("url") or ""
+        opened = bool(url) and QDesktopServices.openUrl(QUrl(url))
+        if not opened:
+            QMessageBox.information(
+                dlg or self, "没有网络", update_check.NO_NETWORK_MESSAGE)
+            return
+        if dlg is not None:
+            dlg.accept()
 
     def _go(self, idx):
         self.pages.setCurrentIndex(idx)
@@ -2243,6 +2443,7 @@ class MainWindow(QMainWindow):
         return {
             # 全局与导航
             "settings.shortcuts": self._show_shortcut_settings,
+            "global.check_updates": self._on_update_button,
             "nav.home": lambda: self._go(self.PAGE_HOME),
             "nav.mark": lambda: self._go(self.PAGE_MARK),
             "nav.prompt": lambda: self._go(self.PAGE_PROMPT),
@@ -2438,6 +2639,10 @@ class MainWindow(QMainWindow):
 
         tip(getattr(self, "btn_shortcuts", None), "settings.shortcuts",
             "打开快捷键设置")
+        if getattr(self, "btn_update", None) is not None:
+            self._set_update_button(
+                bool(self._latest_release.get("update_available")),
+                checking=self._update_checking and self.btn_update.text() == "检测中…")
         tip(getattr(self, "btn_zoom_out", None), "ui.zoom_out", "界面缩小一档")
         tip(getattr(self, "btn_zoom_in", None), "ui.zoom_in", "界面放大一档")
         tip(getattr(self, "btn_prev", None), "mark.previous", "上一张图片")
@@ -3433,6 +3638,8 @@ class MainWindow(QMainWindow):
         # 不停的话:定时器还会 timeout -> 往已经析构的控件上画 -> 段错误
         # (退出码 139,而且日志里看不到任何 Python 报错)。
         self._closing = True
+        self._update_check_seq += 1
+        self._update_link_seq += 1
         try:
             app = QApplication.instance()
             if app is not None and getattr(
@@ -3473,6 +3680,7 @@ def main():
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     app = QApplication(sys.argv)
     app.setApplicationName("Best yolo")
+    app.setApplicationVersion(APP_VERSION)
     app.setDesktopFileName("best-yolo")
     # Fusion 是跨发行版表现最一致的风格;系统主题(如 Adwaita)会覆盖掉不少 QSS
     app.setStyle("Fusion")

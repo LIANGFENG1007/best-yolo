@@ -23,6 +23,10 @@ best-yolo --show-log
 
 确认系统是 64 位 Windows 10 1809+ 或 Windows 11，并查看 `%LOCALAPPDATA%\BestYolo\logs\start.log`。安装器内置 Python、Qt、OpenCV 和微软 VC++ 运行库，不需要另装 Python。
 
+## 检测更新显示“没有网络”
+
+更新检查访问 GitHub。如果当前网络无法访问 GitHub，软件仍可正常使用自动标注、人工修框和数据集导出。开启可用的网络连接后，再点击左上角蓝色“检测更新”。
+
 ## 无法启动或提示 Permission denied
 
 确认安装版本不是早期的 `1.0.0-1`：

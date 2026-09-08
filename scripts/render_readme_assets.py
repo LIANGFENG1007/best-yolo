@@ -96,7 +96,8 @@ def make_banner():
     d.text((74, 225), "Best yolo", font=bold, fill=(239, 241, 244))
     d.text((77, 320), "Qwen-VL 辅助的 YOLO 标注工作台", font=regular,
            fill=(145, 184, 230))
-    lines = ("自动标注  ·  人工精修", "提示词优化  ·  视频抽帧", "Ubuntu 22.04  ·  amd64")
+    lines = ("自动标注  ·  人工精修", "提示词优化  ·  视频抽帧",
+             "Windows 10/11  ·  Ubuntu 22.04")
     for n, text in enumerate(lines):
         d.text((78, 395 + n * 42), text, font=small, fill=(174, 178, 185))
     canvas.save(OUT / "banner.png", optimize=True)

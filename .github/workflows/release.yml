@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEBIAN_REVISION: "4"
+  DEBIAN_REVISION: "1"
 
 jobs:
   deb:
@@ -41,6 +41,7 @@ jobs:
         run: |
           python -B gui/test_gui.py
           python -B gui/test_shortcuts.py
+          python -B gui/test_updates.py
       - name: Resolve version
         id: version
         env:
@@ -52,6 +53,11 @@ jobs:
           else
             TAG="$GITHUB_REF_NAME"
             VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          APP_VERSION="$(PYTHONPATH=gui python -c 'from appmeta import APP_VERSION; print(APP_VERSION)')"
+          if [ "$VERSION" != "$APP_VERSION" ]; then
+            echo "发布版本 $VERSION 与应用版本 $APP_VERSION 不一致" >&2
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -68,6 +74,9 @@ jobs:
           dpkg-deb -x dist/*.deb "$VERIFY_DIR"
           desktop-file-validate "$VERIFY_DIR/usr/share/applications/best-yolo.desktop"
           appstreamcli validate --no-net "$VERIFY_DIR/usr/share/metainfo/best-yolo.metainfo.xml"
+          PACKAGED_VERSION="$(PYTHONPATH="$VERIFY_DIR/opt/best-yolo/app/gui" python -c 'from appmeta import APP_VERSION; print(APP_VERSION)')"
+          test "$PACKAGED_VERSION" = "${{ steps.version.outputs.version }}"
+          test -f "$VERIFY_DIR/opt/best-yolo/app/gui/update_check.py"
       - uses: actions/upload-artifact@v4
         with:
           name: best-yolo-${{ steps.version.outputs.version }}-ubuntu22.04-amd64
@@ -128,10 +137,11 @@ jobs:
       - name: Test Windows packaging logic
         shell: pwsh
         run: |
-          python -m py_compile autolabel_qwen.py build_dataset.py palette.py gui/app.py gui/core.py gui/promptai.py gui/runner.py packaging/build_windows.py packaging/windows_entry.py packaging/windows_worker.py
+          python -m py_compile autolabel_qwen.py build_dataset.py palette.py gui/app.py gui/appmeta.py gui/core.py gui/promptai.py gui/runner.py gui/update_check.py packaging/build_windows.py packaging/windows_entry.py packaging/windows_worker.py
           python -B packaging/test_windows_packaging.py
           $env:QT_QPA_PLATFORM = "offscreen"
           python -B gui/test_shortcuts.py
+          python -B gui/test_updates.py
       - name: Resolve version
         id: version
         shell: pwsh
@@ -143,6 +153,8 @@ jobs:
           } else {
             $version = $env:GITHUB_REF_NAME -replace '^v', ''
           }
+          $appVersion = python -c "import sys; sys.path.insert(0,'gui'); from appmeta import APP_VERSION; print(APP_VERSION)"
+          if ($version -ne $appVersion) { throw "Release version $version does not match app version $appVersion" }
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Build Windows installer
         shell: pwsh
@@ -172,7 +184,9 @@ jobs:
           $smoke = Start-Process -FilePath $app -ArgumentList "--smoke-test", $smokeJson -Wait -PassThru
           if ($smoke.ExitCode -ne 0 -or -not (Test-Path $smokeJson)) { throw "Frozen GUI smoke test failed" }
           $smokeResult = Get-Content $smokeJson -Raw | ConvertFrom-Json
-          if (-not $smokeResult.smoke_ok -or -not $smokeResult.worker_exists -or $smokeResult.pages -ne 5) {
+          if (-not $smokeResult.smoke_ok -or -not $smokeResult.worker_exists -or
+              $smokeResult.pages -ne 5 -or $smokeResult.app_version -ne $version -or
+              $smokeResult.update_button -ne "检测更新") {
             throw "Frozen GUI reported an invalid runtime"
           }
 
@@ -238,6 +252,9 @@ jobs:
             echo "缺少 $NOTES；每个版本必须写明新增功能和修复内容" >&2
             exit 1
           fi
+          grep -Fxq '## 新增功能' "$NOTES"
+          grep -Fxq '## 修复内容' "$NOTES"
+          grep -Fq "## [$TAG]" docs/releases.md
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
