@@ -1748,6 +1748,8 @@ def main():
            "rcol.addWidget(c3, 0)" in _vsrc2 and
            "rcol.addWidget(c2, 0)" in _vsrc2,
            "三张设置卡直接参加同一列布局,缩放后不会使用旧高度")
+        ck("rcol.setSizeConstraint(QVBoxLayout.SetMinimumSize)" in _vsrc2,
+           "右侧内容把卡片最小高度传给滚动区,不同系统字体也不会重叠")
         from rangebar import VideoView as _VV0
         ck(not _VV0().hasHeightForWidth(),
            "预览区不按比例索要高度,窗口矮时肯让位")

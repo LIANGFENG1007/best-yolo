@@ -1978,6 +1978,10 @@ class MainWindow(QMainWindow):
         rcol = QVBoxLayout(right)
         rcol.setContentsMargins(0, 0, 0, 0)
         rcol.setSpacing(10)
+        # QScrollArea 依据内容控件的最小尺寸决定滚动范围。不同系统字体
+        # 在缩放后会产生不同的高度，如果不把布局最小尺寸传给内容控件，
+        # Qt 可能先按旧高度摆放下一张卡，造成几像素重叠。
+        rcol.setSizeConstraint(QVBoxLayout.SetMinimumSize)
 
         c1 = Card("视频与输出")
         self.p_video = PathPicker(
