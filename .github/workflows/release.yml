@@ -248,7 +248,18 @@ jobs:
           ls -lh release-assets
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* --clobber
-            gh release edit "$TAG" --notes-file "${{ steps.version.outputs.notes }}" --title "Best yolo $TAG" --latest
           else
             gh release create "$TAG" release-assets/* --notes-file "${{ steps.version.outputs.notes }}" --title "Best yolo $TAG" --latest
           fi
+          CURRENT_ASSETS="$(find release-assets -maxdepth 1 -type f -printf '%f\n')"
+          while IFS= read -r ASSET; do
+            case "$ASSET" in
+              best-yolo_*_amd64.deb|best-yolo_*_amd64.deb.sha256|BestYolo-Setup-*-win64.exe|BestYolo-Setup-*-win64.exe.sha256|INSTALL-Ubuntu22.04-zh-CN.txt|INSTALL-Windows10-zh-CN.txt)
+                if ! printf '%s\n' "$CURRENT_ASSETS" | grep -Fxq "$ASSET"; then
+                  echo "删除同版本内已被替代的附件: $ASSET"
+                  gh release delete-asset "$TAG" "$ASSET" --yes
+                fi
+                ;;
+            esac
+          done < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+          gh release edit "$TAG" --notes-file "${{ steps.version.outputs.notes }}" --title "Best yolo $TAG" --latest
