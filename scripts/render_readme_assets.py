@@ -189,6 +189,26 @@ def main():
     dialog.grab().save(str(OUT / "shortcuts.png"))
     dialog.close()
 
+    theme_dialog = gui_app.theme_settings.ThemeSettingsDialog(
+        win._theme_id, win._theme_colors, win)
+    theme_dialog.selectPreset("black_gold")
+    theme_dialog.selectField("accent")
+    theme_dialog.resize(960, 680)
+    theme_dialog.show()
+    qt.processEvents()
+    theme_dialog.grab().save(str(OUT / "themes.png"))
+    theme_dialog.close()
+
+    win._go(win.PAGE_HOME)
+    win._apply_theme_choice("classic_light", theme.preset_colors("classic_light"))
+    qt.processEvents()
+    win.grab().save(str(OUT / "theme-classic-white.png"))
+    win._apply_theme_choice("black_gold", theme.preset_colors("black_gold"))
+    qt.processEvents()
+    win.grab().save(str(OUT / "theme-black-gold.png"))
+    win._apply_theme_choice("classic_dark", theme.preset_colors("classic_dark"))
+    qt.processEvents()
+
     import cv2
     video_path = data_root / "demo.avi"
     writer = cv2.VideoWriter(str(video_path), cv2.VideoWriter_fourcc(*"MJPG"),
@@ -206,7 +226,8 @@ def main():
     qt.processEvents()
     shutil.copy2(ROOT / "gui/icon.png", OUT / "logo.png")
     for name in ("overview.png", "annotation.png", "prompt.png",
-                 "shortcuts.png", "video.png", "logo.png"):
+                 "shortcuts.png", "themes.png", "theme-classic-white.png",
+                 "theme-black-gold.png", "video.png", "logo.png"):
         optimize_png(OUT / name)
     make_banner()
     shutil.rmtree(data_root, ignore_errors=True)

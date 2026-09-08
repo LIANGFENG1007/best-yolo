@@ -31,6 +31,8 @@ SHORTCUT_DEFINITIONS = (
     # 全局与导航
     _spec("settings.shortcuts", "全局与导航", "打开快捷键设置",
           "打开当前窗口。", defaults=("Ctrl+Alt+K",)),
+    _spec("settings.theme", "全局与导航", "打开界面配色",
+          "打开主题预设和自定义调色窗口。", defaults=("Ctrl+Alt+T",)),
     _spec("global.check_updates", "全局与导航", "检测软件更新",
           "检测 GitHub 上的最新稳定版本。", defaults=("Ctrl+Alt+U",)),
     _spec("nav.home", "全局与导航", "打开首页", "切换到首页。",

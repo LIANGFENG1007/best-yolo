@@ -46,9 +46,10 @@ class ShortcutSettingsTests(unittest.TestCase):
 
     def test_registry_defaults_and_scoped_conflicts(self):
         defaults = S.default_bindings()
-        self.assertEqual(len(S.SHORTCUT_DEFINITIONS), 78)
+        self.assertEqual(len(S.SHORTCUT_DEFINITIONS), 79)
         self.assertEqual(len({d["section"] for d in S.SHORTCUT_DEFINITIONS}), 6)
         self.assertEqual(defaults["mark.save"], ["Ctrl+S"])
+        self.assertEqual(defaults["settings.theme"], ["Ctrl+Alt+T"])
         self.assertEqual(S.find_conflicts(defaults), [])
 
         # 不同页面不会同时生效，因此可以共用同一个按键。

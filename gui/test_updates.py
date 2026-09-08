@@ -47,7 +47,7 @@ class _Opener:
         return self.response
 
 
-def _payload(tag="v1.2.0", body="## 新增功能\n\n- 自动更新提示"):
+def _payload(tag="v1.4.0", body="## 新增功能\n\n- 自动更新提示"):
     return {
         "tag_name": tag,
         "name": f"Best yolo {tag}",
@@ -69,10 +69,10 @@ class UpdateLogicTests(unittest.TestCase):
     def test_release_payload_is_validated(self):
         release = update_check.parse_release(_payload(), "1.1.0")
         self.assertTrue(release["update_available"])
-        self.assertEqual(release["version"], "1.2.0")
+        self.assertEqual(release["version"], "1.4.0")
         self.assertEqual(
             release["url"],
-            "https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.2.0")
+            "https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.4.0")
         self.assertIn("自动更新提示", release["body"])
         bad = _payload()
         bad["prerelease"] = True
@@ -101,7 +101,7 @@ class UpdateLogicTests(unittest.TestCase):
         raw = json.dumps(_payload()).encode("utf-8")
         opener = _Opener(_Response(raw))
         got = update_check._load_latest_json(timeout=3, opener=opener)
-        self.assertEqual(got["tag_name"], "v1.2.0")
+        self.assertEqual(got["tag_name"], "v1.4.0")
         request, timeout = opener.requests[0]
         self.assertEqual(timeout, 3.0)
         self.assertIn(APP_VERSION, request.get_header("User-agent"))
@@ -119,7 +119,7 @@ class UpdateUiTests(unittest.TestCase):
     def test_button_switches_between_blue_and_red_state(self):
         self.assertEqual(self.window.btn_update.text(), "检测更新")
         self.assertEqual(self.window.btn_update.objectName(), "UpdateCheckBtn")
-        release = update_check.parse_release(_payload("v1.2.0"), APP_VERSION)
+        release = update_check.parse_release(_payload("v1.4.0"), APP_VERSION)
         self.window._update_check_seq = 1
         self.window._on_update_ready(1, release, "", False)
         self.assertEqual(self.window.btn_update.text(), "发现更新")

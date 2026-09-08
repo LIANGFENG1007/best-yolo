@@ -24,8 +24,15 @@ Best yolo combines Qwen-VL assisted auto-labeling, manual bounding-box correctio
 - Edit normalized YOLO boxes directly on the original image with undo/redo and image locks.
 - Compare the AI baseline with human corrections and selectively apply prompt suggestions.
 - Extract a selected video interval and export deterministic train/validation splits.
-- Configure 78 commands through a searchable shortcut editor.
+- Configure 79 commands through a searchable shortcut editor.
 - Check for new stable releases in the background and review release notes before opening GitHub.
+- Choose from eight built-in themes or customize interface, text, and button colors with a circular HSV color wheel.
+
+## Interface themes
+
+Open the palette button at the lower left to choose Classic Dark, Classic Light, Black Gold, Rose Red, Aurora Blue, Emerald, Glacier Teal, or Twilight Violet. Custom colors take effect immediately and persist across restarts. Semantic actions such as success, warning, delete, stop, and update alerts automatically retain readable colors.
+
+![Best yolo theme settings](docs/images/themes.png)
 
 ## Windows 10 / 11 x64
 

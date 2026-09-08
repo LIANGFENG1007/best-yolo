@@ -35,7 +35,9 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 
 import core
 from appmeta import APP_VERSION
-from theme import stylesheet, apply_palette, C
+from theme import (stylesheet, apply_palette, apply_theme, load_theme_state,
+                   theme_state, C)
+import theme_settings
 from widgets import (Card, PathPicker, FieldRow, ImageView, color_dot,
                      ThumbStrip, ImageDialog,
                      app_icon, scroll_area, no_wheel, KeyField,
@@ -90,9 +92,12 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        state = core.load_state()
+        self._theme_id, self._theme_colors = load_theme_state(state.get("theme"))
+        apply_theme(self._theme_colors)
         # 任何操作都必须先有项目。None = 还没选,界面处于"只能新建/选项目"状态。
         core.purge_trash()           # 清掉上次没删干净的残骸
-        self._proj = core.load_state().get("project") or None
+        self._proj = state.get("project") or None
         if self._proj and not os.path.isfile(core.project_config_path(self._proj)):
             self._proj = None        # 项目被删了就当没选
         if self._proj is None:
@@ -110,10 +115,14 @@ class MainWindow(QMainWindow):
         self._pending = {}
         # 界面缩放:默认 1.0 = 原始比例。上次手动调过就沿用那个
         try:
-            _z = float(core.load_state().get("zoom") or 1.0)
+            _z = float(state.get("zoom") or 1.0)
         except (TypeError, ValueError):
             _z = 1.0
         self._ui_k = _z if 0.5 <= _z <= 2.0 else 1.0
+        theme_app = QApplication.instance()
+        if theme_app is not None:
+            apply_palette(theme_app)
+            theme_app.setStyleSheet(stylesheet(self._ui_k))
         self._closing = False      # 关窗中:回调要立刻收手,别碰控件
         self._locks = set()        # 上锁的图片名(不参与重跑)
         self._pai_rows = []        # AI 补充提示词页的图片行
@@ -238,6 +247,18 @@ class MainWindow(QMainWindow):
         self.nav.button(0).setChecked(True)
 
         lay.addStretch(1)
+        theme_row = QHBoxLayout()
+        theme_row.setContentsMargins(14, 0, 0, 5)
+        self.btn_theme = QPushButton("")
+        self.btn_theme.setObjectName("ThemeSettingsButton")
+        self.btn_theme.setIcon(theme_settings.palette_icon(28))
+        self.btn_theme.setIconSize(QSize(26, 26))
+        self.btn_theme.setAccessibleName("界面配色")
+        self.btn_theme.setCursor(Qt.PointingHandCursor)
+        self.btn_theme.clicked.connect(self._show_theme_settings)
+        theme_row.addWidget(self.btn_theme)
+        theme_row.addStretch(1)
+        lay.addLayout(theme_row)
         for txt, fn in [("打开输出目录", lambda: self._open(self.cfg["out"])),
                         ("打开预览图目录", lambda: self._open(
                             os.path.join(self.cfg["out"], "vis")))]:
@@ -2443,6 +2464,7 @@ class MainWindow(QMainWindow):
         return {
             # 全局与导航
             "settings.shortcuts": self._show_shortcut_settings,
+            "settings.theme": self._show_theme_settings,
             "global.check_updates": self._on_update_button,
             "nav.home": lambda: self._go(self.PAGE_HOME),
             "nav.mark": lambda: self._go(self.PAGE_MARK),
@@ -2621,6 +2643,86 @@ class MainWindow(QMainWindow):
         self._rebuild_shortcuts()
         self.status.showMessage("快捷键已保存并立即生效", 4000)
 
+    def _show_theme_settings(self):
+        dlg = theme_settings.ThemeSettingsDialog(
+            self._theme_id, self._theme_colors, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        preset_id, colors = dlg.selectedTheme()
+        self._apply_theme_choice(preset_id, colors)
+
+    def _apply_theme_choice(self, preset_id, colors):
+        """立即换肤并保存；同时替换控件中按旧主题生成的行内颜色。"""
+        old = dict(C)
+        payload = theme_state(preset_id, colors)
+        self._theme_id = payload["preset"]
+        self._theme_colors = dict(payload["colors"])
+        apply_theme(self._theme_colors)
+
+        app = QApplication.instance()
+        if app is not None:
+            apply_palette(app)
+            app.setStyleSheet(stylesheet(self._ui_k))
+
+        # 行内样式只使用这些前景/边框色。背景色在浅色主题里可能相同
+        # （例如侧栏和卡片都是 #FFFFFF），按十六进制替换会无法判断它原本
+        # 属于哪个字段，因此背景统一交给上面的全局 QSS 更新。
+        inline_keys = ("text", "text_dim", "text_faint", "accent", "accent_hi",
+                       "accent_lo", "ok", "warn", "err", "border")
+        replacements = {}
+        for key in inline_keys:
+            value = old.get(key)
+            if key in C and isinstance(value, str) and value.startswith("#"):
+                replacements.setdefault(value.upper(), C[key])
+
+        def replace_colors(qss):
+            if not isinstance(qss, str) or not qss:
+                return qss
+            return re.sub(
+                r"#[0-9a-fA-F]{6}",
+                lambda match: replacements.get(match.group(0).upper(),
+                                                 match.group(0)), qss)
+
+        for widget in [self] + self.findChildren(QWidget):
+            try:
+                before = widget.styleSheet()
+                after = replace_colors(before)
+                if after != before:
+                    widget.setStyleSheet(after)
+            except Exception:
+                pass
+
+        # 表格和列表中有些状态色是 QBrush，不在 QSS 内，也要同步更新。
+        for table in self.findChildren(QTableWidget):
+            for row in range(table.rowCount()):
+                for column in range(table.columnCount()):
+                    item = table.item(row, column)
+                    if item is None:
+                        continue
+                    try:
+                        color = item.foreground().color().name().upper()
+                        if color in replacements:
+                            item.setForeground(QColor(replacements[color]))
+                    except Exception:
+                        pass
+        for listing in self.findChildren(QListWidget):
+            for index in range(listing.count()):
+                item = listing.item(index)
+                if item is None:
+                    continue
+                try:
+                    color = item.foreground().color().name().upper()
+                    if color in replacements:
+                        item.setForeground(QColor(replacements[color]))
+                except Exception:
+                    pass
+
+        self.btn_theme.setIcon(theme_settings.palette_icon(28))
+        core.save_state(theme=payload)
+        self._update_shortcut_tooltips()
+        self.update()
+        self.status.showMessage("界面配色已保存并立即生效", 4000)
+
     def _nudge_or_step(self, dx, dy, step_image=0):
         """上下键沿用原交互：选中框时微调，没选框时翻图。"""
         if self.canvas.selected() >= 0:
@@ -2639,6 +2741,7 @@ class MainWindow(QMainWindow):
 
         tip(getattr(self, "btn_shortcuts", None), "settings.shortcuts",
             "打开快捷键设置")
+        tip(getattr(self, "btn_theme", None), "settings.theme", "打开界面配色")
         if getattr(self, "btn_update", None) is not None:
             self._set_update_button(
                 bool(self._latest_release.get("update_available")),
@@ -3684,6 +3787,8 @@ def main():
     app.setDesktopFileName("best-yolo")
     # Fusion 是跨发行版表现最一致的风格;系统主题(如 Adwaita)会覆盖掉不少 QSS
     app.setStyle("Fusion")
+    _theme_id, _theme_colors = load_theme_state(core.load_state().get("theme"))
+    apply_theme(_theme_colors)
     apply_palette(app)
     app.setStyleSheet(stylesheet())
     f = app.font()

@@ -35,4 +35,6 @@ jobs:
       - name: Run real Qt shortcut suite
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -B gui/test_shortcuts.py
+        run: |
+          python -B gui/test_shortcuts.py
+          python -B gui/test_themes.py

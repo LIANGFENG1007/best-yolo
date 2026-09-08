@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""深色主题。颜色集中在这里,改配色只动这一个文件。
+"""Best yolo 的可配置主题和全局 Qt 样式。
 
 关于 QSS 的两个坑(踩过):
 - Qt 的 rgba() 里 alpha 是 0~255 整数或百分比,写 0.12 会被截成 0 = 完全透明。
@@ -9,22 +9,251 @@
 import os
 import re
 
-C = {
-    "bg":        "#1E1F22",   # 窗口底
-    "bg_side":   "#191A1C",   # 侧边栏(比底更深,拉开层次)
-    "card":      "#2A2C30",   # 卡片/输入框
-    "card_hi":   "#32353A",   # 悬停
-    "border":    "#3A3D42",
-    "text":      "#E8E8EA",
-    "text_dim":  "#9A9CA1",   # 次要说明文字
-    "text_faint": "#6E7075",  # 占位符
-    "accent":    "#4A9EFF",   # 强调蓝
-    "accent_hi": "#63AEFF",
-    "accent_lo": "#2B5F9E",
-    "ok":        "#3FB950",
-    "warn":      "#D29922",
-    "err":       "#F85149",
-}
+THEME_FIELDS = (
+    ("bg", "界面底色"),
+    ("bg_side", "侧边栏"),
+    ("card", "面板"),
+    ("input", "输入区域"),
+    ("text", "主要文字"),
+    ("text_dim", "次要文字"),
+    ("accent", "按钮与强调色"),
+)
+EDITABLE_COLOR_KEYS = tuple(key for key, _label in THEME_FIELDS)
+
+# 八套预设都使用中性色做大面积背景，再用一个有辨识度的强调色。
+# 这样既保留主题个性，也不会让工作界面被单一色相淹没。
+THEME_PRESETS = (
+    {
+        "id": "classic_dark", "name": "经典黑",
+        "colors": {
+            "bg": "#1E1F22", "bg_side": "#191A1C", "card": "#2A2C30",
+            "input": "#16171A", "text": "#E8E8EA", "text_dim": "#9A9CA1",
+            "accent": "#4A9EFF",
+        },
+    },
+    {
+        "id": "classic_light", "name": "经典白",
+        "colors": {
+            "bg": "#F3F5F7", "bg_side": "#FFFFFF", "card": "#FFFFFF",
+            "input": "#F8FAFC", "text": "#20242A", "text_dim": "#667085",
+            "accent": "#2563EB",
+        },
+    },
+    {
+        "id": "black_gold", "name": "流金黑",
+        "colors": {
+            "bg": "#141413", "bg_side": "#0C0C0B", "card": "#211F1A",
+            "input": "#11110F", "text": "#F4ECD8", "text_dim": "#B7AA87",
+            "accent": "#D4A72C",
+        },
+    },
+    {
+        "id": "rose_red", "name": "玫瑰红",
+        "colors": {
+            "bg": "#211A1D", "bg_side": "#171316", "card": "#302429",
+            "input": "#191417", "text": "#F7EDEF", "text_dim": "#C3A6AE",
+            "accent": "#E05275",
+        },
+    },
+    {
+        "id": "aurora_blue", "name": "极光蓝",
+        "colors": {
+            "bg": "#171C22", "bg_side": "#11151A", "card": "#252C34",
+            "input": "#12171C", "text": "#EDF4F7", "text_dim": "#9AAAB6",
+            "accent": "#22A7F0",
+        },
+    },
+    {
+        "id": "emerald", "name": "翡翠绿",
+        "colors": {
+            "bg": "#18201D", "bg_side": "#101713", "card": "#27312C",
+            "input": "#121915", "text": "#EEF5F0", "text_dim": "#9FB2A6",
+            "accent": "#2FBF71",
+        },
+    },
+    {
+        "id": "glacier_teal", "name": "冰川青",
+        "colors": {
+            "bg": "#172023", "bg_side": "#101719", "card": "#243034",
+            "input": "#11191B", "text": "#ECF5F6", "text_dim": "#9BB0B3",
+            "accent": "#21B8B2",
+        },
+    },
+    {
+        "id": "twilight_violet", "name": "暮光紫",
+        "colors": {
+            "bg": "#1D1B22", "bg_side": "#151419", "card": "#2B2831",
+            "input": "#17151B", "text": "#F2EEF5", "text_dim": "#AAA1B2",
+            "accent": "#9B7BEA",
+        },
+    },
+)
+PRESET_BY_ID = {preset["id"]: preset for preset in THEME_PRESETS}
+DEFAULT_THEME_ID = "classic_dark"
+_HEX_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
+
+
+def normalize_hex_color(value, fallback="#000000"):
+    """把持久化或输入框中的颜色规范成 #RRGGBB。"""
+    match = _HEX_RE.match(str(value or "").strip())
+    if match:
+        return "#" + match.group(1).upper()
+    fallback_match = _HEX_RE.match(str(fallback or "").strip())
+    return "#" + (fallback_match.group(1).upper()
+                  if fallback_match else "000000")
+
+
+def _rgb(value):
+    value = normalize_hex_color(value)
+    return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def mix_color(left, right, amount):
+    """按 amount 把 left 线性混向 right。"""
+    amount = max(0.0, min(1.0, float(amount)))
+    a, b = _rgb(left), _rgb(right)
+    return "#{:02X}{:02X}{:02X}".format(*(
+        round(x + (y - x) * amount) for x, y in zip(a, b)))
+
+
+def relative_luminance(value):
+    def channel(v):
+        v /= 255.0
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (channel(v) for v in _rgb(value))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(left, right):
+    hi, lo = sorted((relative_luminance(left), relative_luminance(right)),
+                    reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def best_text_color(background):
+    """为实心按钮选黑字或白字，保证自定义按钮色仍清晰。"""
+    dark, light = "#101114", "#FFFFFF"
+    return (dark if contrast_ratio(dark, background) >=
+            contrast_ratio(light, background) else light)
+
+
+def ensure_contrast(foreground, background, minimum=3.0):
+    """把语义色向黑或白微调到可读；不改变用户指定的普通文字色。"""
+    foreground = normalize_hex_color(foreground)
+    background = normalize_hex_color(background)
+    if contrast_ratio(foreground, background) >= minimum:
+        return foreground
+    target = best_text_color(background)
+    for step in range(1, 21):
+        candidate = mix_color(foreground, target, step / 20.0)
+        if contrast_ratio(candidate, background) >= minimum:
+            return candidate
+    return target
+
+
+def preset_colors(preset_id=DEFAULT_THEME_ID):
+    preset = PRESET_BY_ID.get(preset_id, PRESET_BY_ID[DEFAULT_THEME_ID])
+    return {key: normalize_hex_color(preset["colors"][key])
+            for key in EDITABLE_COLOR_KEYS}
+
+
+def resolve_theme(colors=None):
+    """补齐派生色。带含义的按钮会自动得到适合当前明暗背景的颜色。"""
+    base = preset_colors(DEFAULT_THEME_ID)
+    if isinstance(colors, dict):
+        for key in EDITABLE_COLOR_KEYS:
+            if key in colors:
+                base[key] = normalize_hex_color(colors[key], base[key])
+
+    dark = relative_luminance(base["bg"]) < 0.38
+    toward = "#FFFFFF" if dark else "#000000"
+    semantic = {
+        "ok": "#3FB950" if dark else "#217A3C",
+        "warn": "#D29922" if dark else "#906200",
+        "err": "#F85149" if dark else "#C9342D",
+    }
+    out = dict(base)
+    out.update({
+        "card_hi": mix_color(base["card"], toward, 0.08),
+        "button_hover": mix_color(base["card"], toward, 0.14),
+        "button_pressed": mix_color(base["card"], base["bg"], 0.40),
+        "disabled_bg": mix_color(base["card"], base["bg"], 0.46),
+        "border": mix_color(base["card"], base["text"], 0.16),
+        "text_faint": mix_color(base["bg"], base["text"], 0.43),
+        "accent_hi": mix_color(base["accent"], toward, 0.16),
+        "accent_lo": mix_color(base["accent"], base["bg"], 0.52),
+        "accent_tint": mix_color(base["bg_side"], base["accent"], 0.16),
+        "accent_text": best_text_color(base["accent"]),
+        "accent_fg": ensure_contrast(base["accent"], base["bg_side"], 3.2),
+        "selection_text": best_text_color(
+            mix_color(base["accent"], base["bg"], 0.52)),
+        "scroll": mix_color(base["bg"], base["text"], 0.25),
+        "scroll_hi": mix_color(base["bg"], base["text"], 0.37),
+        "log_text": mix_color(base["input"], base["text"], 0.82),
+        "check_border": mix_color(base["bg"], base["text"], 0.48),
+    })
+    for name, color in semantic.items():
+        out[name] = ensure_contrast(color, base["card"], 3.15)
+        out[name + "_hi"] = mix_color(out[name], toward, 0.14)
+        out[name + "_lo"] = mix_color(out[name], base["bg"], 0.24)
+        out[name + "_text"] = best_text_color(out[name])
+        out[name + "_soft"] = mix_color(base["card"], out[name], 0.18)
+    out["row_del"] = ensure_contrast(
+        mix_color(out["err"], base["card"], 0.34), base["card"], 3.0)
+    if base == preset_colors(DEFAULT_THEME_ID):
+        # “经典黑”就是 1.1.0 的原始界面；保留用户已经熟悉的细节色。
+        out.update({
+            "card_hi": "#32353A", "button_hover": "#3C4046",
+            "button_pressed": "#2E3136", "disabled_bg": "#2F3237",
+            "border": "#3A3D42", "text_faint": "#6E7075",
+            "accent_hi": "#63AEFF", "accent_lo": "#2B5F9E",
+            "accent_tint": "#202A35", "scroll": "#45484E",
+            "scroll_hi": "#55585F", "log_text": "#C8CACE",
+            "check_border": "#6B7280", "row_del": "#A85450",
+            "err_hi": "#FF675F", "err_lo": "#C9352E",
+        })
+    return out
+
+
+# 其他模块通过 ``from theme import C`` 持有这一个字典，所以应用新主题时
+# 必须原地更新，不能把 C 重新赋值成另一个对象。
+C = {}
+
+
+def apply_theme(colors=None):
+    C.clear()
+    C.update(resolve_theme(colors))
+    return C
+
+
+def load_theme_state(value):
+    """读取 .gui_state.json 中的主题；旧版本或损坏值自动回到经典黑。"""
+    if not isinstance(value, dict):
+        return DEFAULT_THEME_ID, preset_colors(DEFAULT_THEME_ID)
+    preset_id = str(value.get("preset") or DEFAULT_THEME_ID)
+    base_id = preset_id if preset_id in PRESET_BY_ID else DEFAULT_THEME_ID
+    colors = preset_colors(base_id)
+    saved = value.get("colors")
+    if isinstance(saved, dict):
+        for key in EDITABLE_COLOR_KEYS:
+            if key in saved:
+                colors[key] = normalize_hex_color(saved[key], colors[key])
+    if preset_id not in PRESET_BY_ID and preset_id != "custom":
+        preset_id = DEFAULT_THEME_ID
+    if preset_id in PRESET_BY_ID and colors != preset_colors(preset_id):
+        preset_id = "custom"
+    return preset_id, colors
+
+
+def theme_state(preset_id, colors):
+    clean = resolve_theme(colors)
+    editable = {key: clean[key] for key in EDITABLE_COLOR_KEYS}
+    if preset_id not in PRESET_BY_ID or editable != preset_colors(preset_id):
+        preset_id = "custom"
+    return {"preset": preset_id, "colors": editable}
+
+
+apply_theme(preset_colors(DEFAULT_THEME_ID))
 
 # 等宽字体:日志窗用。列几个常见的,取系统里有的第一个。
 MONO = '"JetBrains Mono","Noto Sans Mono","DejaVu Sans Mono","Consolas",monospace'
@@ -39,7 +268,7 @@ def apply_palette(app):
     from PySide6.QtGui import QPalette, QColor
     from PySide6.QtCore import Qt
     p = QPalette()
-    win, base, text = QColor(C["bg"]), QColor("#16171A"), QColor(C["text"])
+    win, base, text = QColor(C["bg"]), QColor(C["input"]), QColor(C["text"])
     p.setColor(QPalette.Window, win)
     p.setColor(QPalette.WindowText, text)
     p.setColor(QPalette.Base, base)
@@ -50,8 +279,8 @@ def apply_palette(app):
     p.setColor(QPalette.ToolTipBase, QColor(C["card"]))
     p.setColor(QPalette.ToolTipText, text)
     p.setColor(QPalette.Highlight, QColor(C["accent"]))
-    p.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
-    p.setColor(QPalette.Link, QColor(C["accent"]))
+    p.setColor(QPalette.HighlightedText, QColor(C["accent_text"]))
+    p.setColor(QPalette.Link, QColor(C["accent_fg"]))
     p.setColor(QPalette.PlaceholderText, QColor(C["text_faint"]))
     for g in (QPalette.Disabled,):
         p.setColor(g, QPalette.Text, QColor(C["text_faint"]))
@@ -217,22 +446,22 @@ QWidget {{
     min-width: 50px;
 }}
 #UpdateCheckBtn {{
-    color: {C['accent_hi']};
-    background: rgba(74,158,255,22);
+    color: {C['accent_fg']};
+    background: {C['accent_tint']};
     border: 1px solid {C['accent_lo']};
 }}
 #UpdateCheckBtn:hover {{
-    color: #FFFFFF;
-    background: {C['accent_lo']};
+    color: {C['accent_text']};
+    background: {C['accent']};
     border-color: {C['accent']};
 }}
 #UpdateAvailableBtn {{
-    color: #FFFFFF;
+    color: {C['err_text']};
     background: {C['err']};
     border: 1px solid {C['err']};
 }}
-#UpdateAvailableBtn:hover {{ background: #FF675F; border-color: #FF675F; }}
-#UpdateAvailableBtn:pressed {{ background: #C9352E; border-color: #C9352E; }}
+#UpdateAvailableBtn:hover {{ background: {C['err_hi']}; border-color: {C['err_hi']}; }}
+#UpdateAvailableBtn:pressed {{ background: {C['err_lo']}; border-color: {C['err_lo']}; }}
 #BrandSub {{
     color: {C['text_faint']};
     font-size: 11px;
@@ -307,7 +536,7 @@ QWidget {{
 /* ---------- 输入控件 ---------- */
 QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox,
 QKeySequenceEdit {{
-    background: {C['bg']};
+    background: {C['input']};
     border: 1px solid {C['border']};
     border-radius: 6px;
     padding: 7px 9px;
@@ -357,7 +586,7 @@ QSpinBox::down-button, QDoubleSpinBox::down-button {{
 }}
 QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
 QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-    background: #4A4E55;
+    background: {C['button_hover']};
 }}
 {spin_rules}
 
@@ -369,25 +598,25 @@ QPushButton {{
     padding: 8px 16px;
     color: {C['text']};
 }}
-QPushButton:hover {{ background: #3C4046; border-color: #4A4E55; }}
-QPushButton:pressed {{ background: #2E3136; }}
+QPushButton:hover {{ background: {C['button_hover']}; border-color: {C['accent_lo']}; }}
+QPushButton:pressed {{ background: {C['button_pressed']}; }}
 QPushButton:disabled {{ background: {C['card']}; color: {C['text_faint']}; }}
 
 #Primary {{
     background: {C['accent']};
     border: none;
-    color: #FFFFFF;
+    color: {C['accent_text']};
     font-weight: 600;
     padding: 10px 22px;
 }}
 #Primary:hover {{ background: {C['accent_hi']}; }}
 #Primary:pressed {{ background: {C['accent_lo']}; }}
-#Primary:disabled {{ background: #2F3237; color: {C['text_faint']}; }}
+#Primary:disabled {{ background: {C['disabled_bg']}; color: {C['text_faint']}; }}
 
 #Danger {{ background: transparent; border: 1px solid {C['err']}; color: {C['err']}; }}
 /* Qt 的 rgba alpha 是 0~255 整数,不能写 0.12(会被截成 0=全透明,等于没有悬停反馈) */
-#Danger:hover {{ background: rgba(248,81,73,32); }}
-#Danger:pressed {{ background: rgba(248,81,73,56); }}
+#Danger:hover {{ background: {C['err_soft']}; }}
+#Danger:pressed {{ background: {C['err_lo']}; color: {C['err_text']}; }}
 #Danger:disabled {{ border-color: {C['border']}; color: {C['text_faint']}; }}
 
 /* 类别表每行右边的「✕ 删除」:平时是暗红的,悬停才变亮红填充,
@@ -397,13 +626,13 @@ QPushButton:disabled {{ background: {C['card']}; color: {C['text_faint']}; }}
     border: 1px solid transparent;
     border-radius: 4px;
     padding: 0 6px;
-    color: #A85450;
+    color: {C['row_del']};
     font-size: 12px;
 }}
 #RowDel:hover {{
-    background: {C['err']}; color: #FFFFFF; border-color: {C['err']};
+    background: {C['err']}; color: {C['err_text']}; border-color: {C['err']};
 }}
-#RowDel:pressed {{ background: #C9352E; color: #FFFFFF; }}
+#RowDel:pressed {{ background: {C['err_lo']}; color: {C['err_text']}; }}
 #RowDel:disabled {{ color: {C['border']}; background: transparent; }}
 
 /* 右上角的界面缩放 - / + */
@@ -430,29 +659,39 @@ QPushButton:disabled {{ background: {C['card']}; color: {C['text_faint']}; }}
 }}
 #ShortcutSettingsBtn:pressed {{ background: {C['accent_lo']}; }}
 
+#ThemeSettingsButton {{
+    background: transparent; border: 1px solid transparent;
+    border-radius: 6px; padding: 3px;
+    min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px;
+}}
+#ThemeSettingsButton:hover {{
+    background: {C['card']}; border-color: {C['border']};
+}}
+#ThemeSettingsButton:pressed {{ background: {C['card_hi']}; }}
+
 #LinkBtn {{
     background: transparent; border: none;
-    color: {C['accent']}; padding: 4px 6px; text-align: left;
+    color: {C['accent_fg']}; padding: 4px 6px; text-align: left;
 }}
 #LinkBtn:hover {{ color: {C['accent_hi']}; text-decoration: underline; }}
 
 /* ---------- 表格 ---------- */
 QTableWidget, QTableView, QTreeWidget {{
-    background: {C['bg']};
+    background: {C['input']};
     border: 1px solid {C['border']};
     border-radius: 6px;
     gridline-color: {C['border']};
     selection-background-color: {C['accent_lo']};
 }}
 QTableWidget::item {{ padding: 5px 6px; border: none; }}
-QTableWidget::item:selected {{ color: {C['text']}; }}
+QTableWidget::item:selected {{ color: {C['selection_text']}; }}
 QTreeWidget::item {{ padding: 5px 7px; }}
-QTreeWidget::item:selected {{ color: {C['text']}; }}
+QTreeWidget::item:selected {{ color: {C['selection_text']}; }}
 
 #ShortcutEditor {{
     background: {C['card']}; border: 1px solid {C['border']}; border-radius: 7px;
 }}
-#ShortcutScope {{ color: {C['accent']}; background: transparent; font-size: 11px; }}
+#ShortcutScope {{ color: {C['accent_fg']}; background: transparent; font-size: 11px; }}
 
 /* 单元格里弹出的编辑框。
    它是个 QLineEdit,会继承上面输入控件的 padding: 7px 9px —— 在只有
@@ -464,7 +703,7 @@ QTableWidget QLineEdit, QTableView QLineEdit {{
     margin: 0px;
     border: 1px solid {C['accent']};
     border-radius: 3px;
-    background: {C['bg']};
+    background: {C['input']};
     color: {C['text']};
     font-family: {UI_FONT};
     font-size: 13px;
@@ -488,7 +727,7 @@ QCheckBox {{ spacing: 7px; background: transparent; }}
    QListWidget 里的勾选框会退回 Qt 默认画法 —— 在深色底上几乎看不见 */
 QCheckBox::indicator, QListWidget::indicator, QTreeWidget::indicator {{
     width: 15px; height: 15px;
-    border: 1px solid #6B7280;
+    border: 1px solid {C['check_border']};
     border-radius: 4px;
     background: {C['bg']};
 }}
@@ -505,12 +744,12 @@ QTreeWidget::indicator:checked {{
 
 /* ---------- 日志 ---------- */
 #Log {{
-    background: #16171A;
+    background: {C['input']};
     border: 1px solid {C['border']};
     border-radius: 6px;
     font-family: {MONO};
     font-size: 12px;
-    color: #C8CACE;
+    color: {C['log_text']};
     padding: 8px;
 }}
 
@@ -528,14 +767,14 @@ QProgressBar::chunk {{ background: {C['accent']}; border-radius: 3px; }}
 /* ---------- 滚动条 ---------- */
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}
 QScrollBar::handle:vertical {{
-    background: #45484E; border-radius: 5px; min-height: 28px;
+    background: {C['scroll']}; border-radius: 5px; min-height: 28px;
 }}
-QScrollBar::handle:vertical:hover {{ background: #55585F; }}
+QScrollBar::handle:vertical:hover {{ background: {C['scroll_hi']}; }}
 QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 0; }}
 QScrollBar::handle:horizontal {{
-    background: #45484E; border-radius: 5px; min-width: 28px;
+    background: {C['scroll']}; border-radius: 5px; min-width: 28px;
 }}
-QScrollBar::handle:horizontal:hover {{ background: #55585F; }}
+QScrollBar::handle:horizontal:hover {{ background: {C['scroll_hi']}; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
@@ -554,8 +793,38 @@ QToolTip {{
 }}
 #StatusBar {{ background: {C['bg_side']}; color: {C['text_dim']}; }}
 #Chip {{
-    background: {C['bg']}; border: 1px solid {C['border']};
+    background: {C['input']}; border: 1px solid {C['border']};
     border-radius: 10px; padding: 2px 9px; color: {C['text_dim']}; font-size: 11px;
+}}
+
+/* ---------- 配色设置 ---------- */
+#ThemePresetButton {{
+    background: {C['input']}; border: 1px solid {C['border']};
+    border-radius: 7px; text-align: left; padding: 8px 10px;
+    min-height: 42px; font-weight: 600;
+}}
+#ThemePresetButton:hover {{ border-color: {C['accent']}; background: {C['card_hi']}; }}
+#ThemePresetButton:checked {{
+    border: 1px solid {C['accent']}; background: {C['accent_tint']};
+    color: {C['text']}; padding: 8px 10px;
+}}
+#ThemeColorRow {{
+    background: {C['input']}; border: 1px solid {C['border']};
+    border-radius: 6px; padding: 7px 9px; text-align: left;
+}}
+#ThemeColorRow:hover {{ border-color: {C['accent']}; background: {C['card_hi']}; }}
+#ThemeColorRow:checked {{ border: 1px solid {C['accent']}; background: {C['accent_tint']}; }}
+#ThemePreview {{
+    background: {C['input']}; border: 1px solid {C['border']}; border-radius: 7px;
+}}
+#ThemePickerPanel {{
+    background: {C['card']}; border: 1px solid {C['border']}; border-radius: 7px;
+}}
+#ThemeHex {{ font-family: {MONO}; font-size: 12px; }}
+#ThemeCustomBadge {{
+    color: {C['accent_fg']}; background: {C['accent_tint']};
+    border: 1px solid {C['accent_lo']}; border-radius: 8px;
+    padding: 2px 7px; font-size: 10px;
 }}
 """
     return scale_qss(_qss, scale)

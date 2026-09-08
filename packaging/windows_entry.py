@@ -90,9 +90,13 @@ def _smoke_test(output):
         "pages": window.pages.count(),
         "window_title": window.windowTitle(),
         "update_button": window.btn_update.text(),
+        "theme_button": window.btn_theme.objectName(),
+        "theme_icon": not window.btn_theme.icon().isNull(),
         "smoke_ok": (window.pages.count() == 5 and
                      window.windowTitle() == "Best yolo" and
-                     window.btn_update.text() == "检测更新"),
+                     window.btn_update.text() == "检测更新" and
+                     window.btn_theme.objectName() == "ThemeSettingsButton" and
+                     not window.btn_theme.icon().isNull()),
     })
     _write_json(output, result)
     window.close()

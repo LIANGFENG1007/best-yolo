@@ -796,7 +796,7 @@ def install():
                     "QComboBox", "QSpinBox", "QDoubleSpinBox", "QPlainTextEdit",
                     "QTextEdit", "QTextBrowser", "QTableWidget", "QSplitter", "QCheckBox",
                     "QProgressBar", "QFrame", "QScrollArea", "QStatusBar",
-                    "QTreeWidget", "QKeySequenceEdit")
+                    "QTreeWidget", "QKeySequenceEdit", "QSlider")
     for n in widget_names:
         setattr(QtWidgets, n, _AnyAttrMeta(n, (Obj,), {}))
     QtWidgets.QListWidget = ListObj
