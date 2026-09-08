@@ -48,7 +48,7 @@ Windows 构建固定使用 Windows Server 2022 x64、Python 3.10、PyInstaller �
 
 ```powershell
 python -m pip install -r packaging/requirements-deb.lock -r packaging/requirements-windows-build.lock
-python packaging/build_windows.py --version 1.0.0 --vc-redist C:\path\to\VC_redist.x64.exe
+python packaging/build_windows.py --version 1.0.0 --vc-redist C:\path\to\VC_redist.x64.exe --inno-chinese C:\path\to\ChineseSimplified.isl
 ```
 
 Windows 构建包含无控制台 GUI 和独立后台任务程序。CI 会把安装器装进自定义临时目录，运行真实 Qt 界面与中文类别导出，再卸载并确认用户数据仍在。

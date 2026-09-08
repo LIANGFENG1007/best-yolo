@@ -291,6 +291,8 @@ def main():
     parser.add_argument("--output-dir", default=str(ROOT / "dist"))
     parser.add_argument("--vc-redist", required=True,
                         help="微软官方 VC_redist.x64.exe 的路径")
+    parser.add_argument("--inno-chinese", required=True,
+                        help="Inno Setup 官方 ChineseSimplified.isl 的路径")
     args = parser.parse_args()
     version, parts = parse_version(args.version)
     check_host()
@@ -298,6 +300,9 @@ def main():
     vc_redist = Path(args.vc_redist).resolve()
     if not vc_redist.is_file():
         raise SystemExit(f"找不到 VC++ 运行库安装程序: {vc_redist}")
+    inno_chinese = Path(args.inno_chinese).resolve()
+    if not inno_chinese.is_file():
+        raise SystemExit(f"找不到 Inno Setup 简体中文语言文件: {inno_chinese}")
 
     build_root = ROOT / "build" / "windows"
     if build_root.exists():
@@ -320,6 +325,7 @@ def main():
         "BEST_YOLO_OUTPUT_DIR": str(output_dir),
         "BEST_YOLO_SETUP_ICON": str(icon),
         "BEST_YOLO_VC_REDIST": str(vc_redist),
+        "BEST_YOLO_INNO_CHINESE": str(inno_chinese),
     })
     run([iscc, ROOT / "packaging" / "windows" / "installer.iss"], env=env)
 

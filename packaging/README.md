@@ -30,7 +30,7 @@ Build on 64-bit Windows with Python 3.10, PyInstaller 6 and Inno Setup 6:
 
 ```powershell
 python -m pip install -r packaging/requirements-deb.lock -r packaging/requirements-windows-build.lock
-python packaging/build_windows.py --version 1.0.0 --vc-redist C:\path\to\VC_redist.x64.exe
+python packaging/build_windows.py --version 1.0.0 --vc-redist C:\path\to\VC_redist.x64.exe --inno-chinese C:\path\to\ChineseSimplified.isl
 ```
 
 The result is `dist/BestYolo-Setup-<version>-win64.exe`. The installer always

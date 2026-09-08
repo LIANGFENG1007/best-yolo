@@ -113,6 +113,18 @@ jobs:
             throw "VC++ runtime is not signed by Microsoft Corporation"
           }
           "VC_REDIST_PATH=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Download and verify Inno Setup Chinese translation
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "ChineseSimplified.isl"
+          $url = "https://api.github.com/repos/jrsoftware/issrc/contents/Files/Languages/ChineseSimplified.isl?ref=6ef32198ef1f7b7b375cd4b6b90896c2a58eb4c2"
+          $headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "BestYolo-Build" }
+          $response = Invoke-RestMethod -Uri $url -Headers $headers
+          [IO.File]::WriteAllBytes($target, [Convert]::FromBase64String(($response.content -replace '\s', '')))
+          $expected = "e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d"
+          $actual = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Inno Setup Chinese translation SHA256 mismatch" }
+          "INNO_CHINESE_PATH=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Test Windows packaging logic
         shell: pwsh
         run: |
@@ -134,7 +146,7 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Build Windows installer
         shell: pwsh
-        run: python packaging/build_windows.py --version "${{ steps.version.outputs.version }}" --vc-redist "$env:VC_REDIST_PATH"
+        run: python packaging/build_windows.py --version "${{ steps.version.outputs.version }}" --vc-redist "$env:VC_REDIST_PATH" --inno-chinese "$env:INNO_CHINESE_PATH"
       - name: Validate, install, exercise and uninstall
         shell: pwsh
         run: |

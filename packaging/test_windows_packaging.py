@@ -47,6 +47,7 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn("DisableDirPage=no", script)
         self.assertIn("MinVersion=10.0.17763", script)
         self.assertIn("VC_redist.x64.exe", script)
+        self.assertIn("BEST_YOLO_INNO_CHINESE", script)
         self.assertNotIn("[UninstallDelete]", script)
 
     def test_cloud_resize_has_no_local_model_dependency(self):

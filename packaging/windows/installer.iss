@@ -3,6 +3,7 @@
 #define OutputDir GetEnv("BEST_YOLO_OUTPUT_DIR")
 #define SetupIcon GetEnv("BEST_YOLO_SETUP_ICON")
 #define VCRedist GetEnv("BEST_YOLO_VC_REDIST")
+#define ChineseMessages GetEnv("BEST_YOLO_INNO_CHINESE")
 
 [Setup]
 AppId={{C2EFD6F0-D3F8-4F5B-87B2-D9A26CF39E4F}
@@ -38,7 +39,7 @@ VersionInfoProductVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) 2026 LIANGFENG1007
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "{#ChineseMessages}"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
