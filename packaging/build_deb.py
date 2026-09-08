@@ -30,7 +30,7 @@ from packaging.requirements import Requirement
 
 
 PACKAGE = "best-yolo"
-VERSION = "1.3.1-1"
+VERSION = "1.3.2-1"
 ARCH = "amd64"
 MAINTAINER = "LIANGFENG1007 <292772460+LIANGFENG1007@users.noreply.github.com>"
 ROOT = Path(__file__).resolve().parents[1]
@@ -470,7 +470,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", default=str(ROOT / "dist"))
     parser.add_argument("--version", default=VERSION,
-                        help="Debian version, for example 1.3.1-1")
+                        help="Debian version, for example 1.3.2-1")
     parser.add_argument("--keep-stage", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9][A-Za-z0-9.+:~\-]*", args.version):

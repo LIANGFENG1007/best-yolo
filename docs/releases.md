@@ -2,6 +2,36 @@
 
 这里集中列出 Best yolo 的公开版本、主要变化和各平台安装包。一般用户应选择最上方的最新稳定版。
 
+## [v1.3.2](https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.3.2) - 2026-09-08
+
+修复视频切片页在界面缩放后设置卡重叠、控件被挤压的问题。
+
+[查看本版本的完整发布说明](release-notes/v1.3.2.md)
+
+### 新增功能
+
+- 视频切片右侧设置区使用独立滚动容器，内容不足一屏时可以继续向下查看。
+- 高缩放下开始卡的次要按钮自动换行，设置区不再被长按钮顶出屏幕。
+
+### 修复内容
+
+- 修复缩放后右侧卡片沿用旧布局高度，造成卡片互相覆盖的问题。
+- 修复抽帧设置、视频输出路径和切片结果区域可能被裁切的问题。
+- 保证不同缩放比例和最小窗口尺寸下，设置卡保持完整高度和正常间距。
+- 鼠标停在未聚焦的输入控件上时也能滚动设置区，不会误改抽帧参数。
+
+### Windows 10 / 11 x64
+
+- [下载安装程序](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/BestYolo-Setup-1.3.2-win64.exe)
+- [SHA256 校验文件](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/BestYolo-Setup-1.3.2-win64.exe.sha256)
+- [中文安装说明](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/INSTALL-Windows10-zh-CN.txt)
+
+### Ubuntu 22.04 amd64
+
+- [下载 Debian 安装包](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/best-yolo_1.3.2-1_amd64.deb)
+- [SHA256 校验文件](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/best-yolo_1.3.2-1_amd64.deb.sha256)
+- [中文安装说明](https://github.com/LIANGFENG1007/best-yolo/releases/download/v1.3.2/INSTALL-Ubuntu22.04-zh-CN.txt)
+
 ## [v1.3.1](https://github.com/LIANGFENG1007/best-yolo/releases/tag/v1.3.1) - 2026-09-08
 
 修复更新发布页误报断网，并增加每个新版本首次自动提醒。

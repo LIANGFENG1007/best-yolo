@@ -25,8 +25,29 @@ class NoWheelFilter(QObject):
 
     def eventFilter(self, obj, ev):
         if ev.type() == QEvent.Wheel and not obj.hasFocus():
+            # 输入框没有焦点时不应改值，但如果它位于页面滚动区内，
+            # 滚轮仍应继续滚动页面。直接转动最近的 QScrollArea，避免
+            # 把事件交回输入控件后又触发数字/下拉选项变化。
+            parent = obj.parentWidget()
+            seen = set()
+            for _level in range(64):
+                if parent is None or id(parent) in seen:
+                    break
+                seen.add(id(parent))
+                if isinstance(parent, QScrollArea):
+                    delta = 0
+                    try:
+                        delta = ev.pixelDelta().y() or ev.angleDelta().y()
+                    except (AttributeError, TypeError):
+                        pass
+                    if delta:
+                        bar = parent.verticalScrollBar()
+                        bar.setValue(bar.value() - delta)
+                    ev.accept()
+                    return True
+                parent = parent.parentWidget()
             ev.ignore()
-            return True          # 拦下来,不传给控件
+            return True          # 没有页面滚动区时只拦下控件滚轮
         return False
 
 

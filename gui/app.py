@@ -160,8 +160,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(app_icon())
         # 最小尺寸必须 >= 内容真正需要的宽度,否则各栏会互相挤压重合。
         # 三栏最小 150+300+200 + 分隔条 + 侧栏 184 + 边距 ≈ 900
-        # 高度下限 700:视频切片页要求一屏放完(不许滚轮),右侧三张设置卡
-        # 加起来约 470px,再要给缩略图留出能看的地方,600 高是塞不下的。
+        # 高度下限 700:视频切片页的左侧预览、区间条和操作栏需要基本可用的
+        # 空间；右侧设置区在缩放比例较大时可以独立滚动。
         self.setMinimumSize(900, 700)
         self.resize(*self._startup_size())
 
@@ -1972,17 +1972,12 @@ class MainWindow(QMainWindow):
         split.addWidget(left)
 
         # ---- 右:设置在上,切好的图在下 ----
-        # 这一页刻意【不用滚动区】:所有东西必须一屏看完。
-        # 三张设置卡按内容占自然高度,剩下的全给缩略图 ——
-        # 窗口变小时是缩略图变小,而不是让你滚轮找按钮。
+        # 右侧设置区使用独立滚动容器。缩放后表单的字体和控件会一起变大，
+        # 内容不足一屏时由右侧滚动条承载，绝不让卡片互相覆盖或裁切。
         right = QWidget()
         rcol = QVBoxLayout(right)
         rcol.setContentsMargins(0, 0, 0, 0)
         rcol.setSpacing(10)
-        rtop = QWidget()
-        rl = QVBoxLayout(rtop)
-        rl.setContentsMargins(0, 0, 0, 0)
-        rl.setSpacing(10)
 
         c1 = Card("视频与输出")
         self.p_video = PathPicker(
@@ -2042,10 +2037,8 @@ class MainWindow(QMainWindow):
         self.btn_vuse.setToolTip("把当前项目的「图片文件夹」指向这个输出目录")
         self.btn_vuse.clicked.connect(self._use_frames)
         c3.body.addWidget(self.btn_vgo)
-        # 三个次要按钮挤一行,省出一整行高度给缩略图 ——
-        # 这一页不许滚动,竖向空间得省着用
-        vrow = QHBoxLayout()
-        vrow.setSpacing(6)
+        # 三个次要按钮挤一行，常规窗口下能把更多空间留给缩略图。
+        vrow = FlowLayout(spacing=6)
         vrow.addWidget(self.btn_vstop)
         vrow.addWidget(self.btn_vopen)
         vrow.addWidget(self.btn_vuse)
@@ -2059,15 +2052,13 @@ class MainWindow(QMainWindow):
         c3.body.addWidget(self.lb_vstat)
 
         # 顺序:视频与输出 -> 开始 -> 抽帧设置。
-        # 「开始」放第二块:排在选文件之后符合"先选再动手"的直觉,
-        # 又不用滚过一堆参数才看到按钮。参数大多只设一次,放最后。
-        rl.addWidget(c1)
-        rl.addWidget(c3)
-        rl.addWidget(c2)
-        # Minimum:这几张卡按内容要多少给多少,绝不被压缩 ——
-        # 被压缩就会出现"输入框比文字还矮、文字变虚线"的问题
-        rtop.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        rcol.addWidget(rtop, 0)          # 0 = 只占内容需要的高度
+        # 三张表单卡直接加入右侧列，不再套额外的 rtop 容器。
+        # 缩放后每张卡的最小高度会变化，直接参与同一个布局可以避免
+        # 外层布局继续使用旧高度而发生重叠。
+        # Card 默认是 Minimum，按内容要多少给多少，输入框不会被压扁。
+        rcol.addWidget(c1, 0)
+        rcol.addWidget(c3, 0)
+        rcol.addWidget(c2, 0)
 
         # 下半:切好的图。点一下放大看
         cthumb = Card("切好的图", "点一下放大查看;左右键翻页", grow=True)
@@ -2083,15 +2074,19 @@ class MainWindow(QMainWindow):
         trow.addWidget(self.lb_thumbs, 1)
         trow.addWidget(b_reload)
         cthumb.body.addLayout(trow)
-        # 缩略图区是"可让位"的那一方:窗口不够高时它先缩,
-        # 而不是把上面的输入框压扁(压扁了文字会被裁成一排虚线)。
+        # 缩略图区是"可让位"的那一方:窗口不够高时它先缩；如果设置卡
+        # 也放不下，则由外层右侧滚动区承载，设置卡仍保持完整高度。
         cthumb.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored)
         self.thumbs.setMinimumHeight(70)
         rcol.addWidget(cthumb, 1)        # 1 = 把剩下的竖向空间全吃掉
 
-        split.addWidget(right)
+        right_scroll = scroll_area(right, min_w=300)
+        right_scroll.setObjectName("VideoSettingsScroll")
+        self.video_settings_scroll = right_scroll
+        self.video_settings_content = right
+        split.addWidget(right_scroll)
         left.setMinimumWidth(300)
-        right.setMinimumWidth(300)
+        right_scroll.setMinimumWidth(300)
         split.setSizes([560, 520])       # 右边宽一点,缩略图才铺得开
         lay.addWidget(split, 1)
 

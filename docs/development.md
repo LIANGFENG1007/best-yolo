@@ -14,6 +14,7 @@
 ```bash
 ./.venv/bin/python -B gui/test_gui.py
 QT_QPA_PLATFORM=offscreen ./.venv/bin/python -B gui/test_shortcuts.py
+QT_QPA_PLATFORM=offscreen ./.venv/bin/python -B gui/test_video_layout.py
 ```
 
 ## 本地 GPU 后端
@@ -37,7 +38,7 @@ QT_QPA_PLATFORM=offscreen ./.venv/bin/python -B gui/test_shortcuts.py
 构建机必须是 Ubuntu 22.04 amd64、Python 3.10：
 
 ```bash
-./.venv/bin/python packaging/build_deb.py --version 1.3.1-1
+./.venv/bin/python packaging/build_deb.py --version 1.3.2-1
 ```
 
 构建器使用白名单复制源码，递归计算锁定依赖，规范化权限和时间戳，生成 SHA256 与中文安装说明。输出在 `dist/`，不会进入 Git；标签发布工作流会把它上传到 GitHub Releases。

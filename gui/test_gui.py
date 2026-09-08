@@ -1737,15 +1737,17 @@ def main():
         _wt._reload_thumbs()
         ck("还没有图" in _wt.lb_thumbs.text(), "空目录有说明,不是一片空白")
 
-        print("\n[33d] 视频页必须一屏放完,不许靠滚轮")
+        print("\n[33d] 视频页缩放时设置区不能重叠或裁切")
         import inspect as _insp
         _vsrc2 = _insp.getsource(A.MainWindow._build_video_page)
-        ck("scroll_area" not in _vsrc2,
-           "视频切片页不套滚动区(套了就又要滚轮找按钮)")
+        ck("scroll_area(right" in _vsrc2,
+           "视频设置区使用独立滚动区(内容多时可以完整访问)")
         ck("rcol.addWidget(cthumb, 1)" in _vsrc2,
-           "缩略图区拿伸缩因子 1:窗口变小是图变小,不是内容被推出屏幕")
-        ck("rcol.addWidget(rtop, 0)" in _vsrc2,
-           "三张设置卡只占自然高度,不抢缩略图的空间")
+           "缩略图区拿伸缩因子 1:空间优先给设置卡")
+        ck("rcol.addWidget(c1, 0)" in _vsrc2 and
+           "rcol.addWidget(c3, 0)" in _vsrc2 and
+           "rcol.addWidget(c2, 0)" in _vsrc2,
+           "三张设置卡直接参加同一列布局,缩放后不会使用旧高度")
         from rangebar import VideoView as _VV0
         ck(not _VV0().hasHeightForWidth(),
            "预览区不按比例索要高度,窗口矮时肯让位")
@@ -1787,12 +1789,11 @@ def main():
         QtWidgets.QApplication.instance = staticmethod(lambda: None)
         ck(_sz_fn(_fake) == (1480, 950), "拿不到屏幕信息时退回 1480x950")
         QtWidgets.QApplication.instance = _orig_inst
-        # 去掉滚动区的副作用:窗口矮时 Qt 会把控件压扁。输入框压到比文字还矮,
-        # 就只能看见文字中间一条,看起来像一排虚线。必须保证它不被压。
-        ck("QSizePolicy.Minimum" in _vsrc2,
-           "设置卡设成 Minimum:按内容要多少给多少,不被压缩")
+        # 右侧设置区允许滚动，窗口矮时仍保持输入框和按钮的完整高度。
+        ck("Card(" in _vsrc2 and "grow=True" in _vsrc2,
+           "设置卡使用不可压缩的 Card,按内容要多少给多少")
         ck("QSizePolicy.Ignored" in _vsrc2,
-           "缩略图区设成 Ignored:它才是让位的那一方")
+           "缩略图区设成 Ignored:空间不足时它先让位")
         import theme as _TH0
         for _k2 in A.MainWindow.ZOOM_STEPS:
             _ss3 = _TH0.stylesheet(_k2)

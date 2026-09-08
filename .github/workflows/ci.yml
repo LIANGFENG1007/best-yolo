@@ -39,3 +39,4 @@ jobs:
           python -B gui/test_shortcuts.py
           python -B gui/test_themes.py
           python -B gui/test_update_dialog_qt.py
+          python -B gui/test_video_layout.py

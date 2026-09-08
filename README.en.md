@@ -24,6 +24,7 @@ Best yolo combines Qwen-VL assisted auto-labeling, manual bounding-box correctio
 - Edit normalized YOLO boxes directly on the original image with undo/redo and image locks.
 - Compare the AI baseline with human corrections and selectively apply prompt suggestions.
 - Extract a selected video interval and export deterministic train/validation splits.
+- Keep video slicing controls readable while zooming; the settings column wraps and scrolls when needed.
 - Configure 79 commands through a searchable shortcut editor.
 - Show each newly detected stable release once and open its page directly in the system browser.
 - Choose from eight built-in themes or customize interface, text, and button colors with a circular HSV color wheel.

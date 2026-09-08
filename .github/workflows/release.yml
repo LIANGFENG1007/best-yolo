@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version without v, for example 1.3.1"
+        description: "Release version without v, for example 1.3.2"
         required: true
 
 permissions:
@@ -43,6 +43,7 @@ jobs:
           python -B gui/test_shortcuts.py
           python -B gui/test_themes.py
           python -B gui/test_update_dialog_qt.py
+          python -B gui/test_video_layout.py
           python -B gui/test_updates.py
       - name: Resolve version
         id: version
@@ -146,6 +147,7 @@ jobs:
           python -B gui/test_shortcuts.py
           python -B gui/test_themes.py
           python -B gui/test_update_dialog_qt.py
+          python -B gui/test_video_layout.py
           python -B gui/test_updates.py
       - name: Resolve version
         id: version
